@@ -35,35 +35,37 @@ Tailwind CSS is an open-source CSS framework. The main feature of this library i
 
 # Project Structure
 
-<img src="Arborescence.png" alt="image" width="300" height="auto">
+<img src="../../Arborescence.png" alt="image" width="300" height="auto">
+
+
 
 ## Components
 
-<img src="Components.png" alt="image" width="300" height="auto">
+<img src="../../Components.png" alt="image" width="300" height="auto">
 
 Nuxt automatically imports all components from this directory.
 
 ### Box
 
-<img src="box.png" alt="image" width="300" height="auto">
+<img src="../../box.png" alt="image" width="300" height="auto">
 
 This folder contains all the components that are box, tags.
 
 ### Forms
 
-<img src="form.png" alt="image" width="300" height="auto">
+<img src="../../form.png" alt="image" width="300" height="auto">
 
 This folder contains all the components that are inputs.
 
 ### Layouts
 
-<img src="layouts.png" alt="image" width="300" height="auto">
+<img src="../../layouts.png" alt="image" width="300" height="auto">
 
 Layouts are components that define the basic structure of a page. They are used to organize common elements such as headers, footers, and sidebars, which are present on multiple pages.
 
 ## Composables
 
-<img src="composables.png" alt="image" width="300" height="auto">
+<img src="../../composables.png" alt="image" width="300" height="auto">
 
 In the context of Vue applications, a "composable" is a function that leverages Vue's composition API to encapsulate and reuse stateful logic. It involves writing the function only once to call it in our views.
 
@@ -121,35 +123,35 @@ Tailwind CSS est un framework CSS open source. La fonctionnalité principale de 
 
 # Arborescence du projet
 
-<img src="Arborescence.png" alt="image" width="250" height="auto">
+<img src="../../Arborescence.png" alt="image" width="250" height="auto">
 
 ## Components
 
-<img src="Components.png" alt="image" width="250" height="auto">
+<img src="../../Components.png" alt="image" width="250" height="auto">
 
 Nuxt importe automatiquement tous les composants de ce répertoire.
 
 ### Box
 
-<img src="box.png" alt="image" width="250" height="auto">
+<img src="../../box.png" alt="image" width="250" height="auto">
 
 Ce dossier contient tous les components qui sont des boxs , tags
 
 ### Forms
 
-<img src="form.png" alt="image" width="250" height="auto">
+<img src="../../form.png" alt="image" width="250" height="auto">
 
 Ce dossier contient tous les components qui sont des inputs
 
 ### Layouts
 
-<img src="layouts.png" alt="image" width="250" height="auto">
+<img src="../../layouts.png" alt="image" width="250" height="auto">
 
 Les layouts sont des composants qui définissent la structure de base d'une page. Ils sont utilisés pour organiser des éléments communs tels que les en-têtes, les pieds de page et les barres latérales, qui sont présents sur plusieurs pages.
 
 ## Composables
 
-<img src="composables.png" alt="image" width="250" height="auto">
+<img src="../../composables.png" alt="image" width="250" height="auto">
 
 Dans le contexte des applications Vue, un « composable » est une fonction qui
 exploite l'API de composition de Vue pour encapsuler et réutiliser la logique avec état. Elle consiste a écrire qu'une seule fois la fonction afin de l'appeler dans nos vues .
