@@ -210,6 +210,61 @@
             border-color: #7b1fa2;
         }
 
+        .inserted-field.field-nombre {
+            background-color: #e8f5e8;
+            border-color: #4caf50;
+            color: #388e3c;
+        }
+
+        .inserted-field.field-nombre:hover {
+            background-color: #c8e6c9;
+            border-color: #388e3c;
+        }
+
+        .inserted-field.field-multioption {
+            background-color: #fce4ec;
+            border-color: #e91e63;
+            color: #c2185b;
+        }
+
+        .inserted-field.field-multioption:hover {
+            background-color: #f8bbd9;
+            border-color: #c2185b;
+        }
+
+        .inserted-field.field-ville {
+            background-color: #e0f2f1;
+            border-color: #009688;
+            color: #00695c;
+        }
+
+        .inserted-field.field-ville:hover {
+            background-color: #b2dfdb;
+            border-color: #00695c;
+        }
+
+        .inserted-field.field-poste {
+            background-color: #fff8e1;
+            border-color: #ffc107;
+            color: #f57f17;
+        }
+
+        .inserted-field.field-poste:hover {
+            background-color: #ffecb3;
+            border-color: #f57f17;
+        }
+
+        .inserted-field.field-comptable {
+            background-color: #fafafa;
+            border-color: #607d8b;
+            color: #455a64;
+        }
+
+        .inserted-field.field-comptable:hover {
+            background-color: #eceff1;
+            border-color: #455a64;
+        }
+
         .field-preview {
             position: fixed;
             background-color: rgba(33, 150, 243, 0.9);
@@ -235,6 +290,31 @@
         .field-preview.field-codepostal {
             background-color: rgba(156, 39, 176, 0.9);
             border-color: #9c27b0;
+        }
+
+        .field-preview.field-nombre {
+            background-color: rgba(76, 175, 80, 0.9);
+            border-color: #4caf50;
+        }
+
+        .field-preview.field-multioption {
+            background-color: rgba(233, 30, 99, 0.9);
+            border-color: #e91e63;
+        }
+
+        .field-preview.field-ville {
+            background-color: rgba(0, 150, 136, 0.9);
+            border-color: #009688;
+        }
+
+        .field-preview.field-poste {
+            background-color: rgba(255, 193, 7, 0.9);
+            border-color: #ffc107;
+        }
+
+        .field-preview.field-comptable {
+            background-color: rgba(96, 125, 139, 0.9);
+            border-color: #607d8b;
         }
 
         #editor.inserting-field {
@@ -275,6 +355,17 @@
         .save-section button:hover {
             background-color: #218838;
         }
+
+        .tab-indent {
+            display: inline;
+        }
+
+        /* Styles pour les champs désactivés */
+        input:disabled {
+            background-color: #f8f9fa !important;
+            color: #6c757d !important;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
@@ -314,13 +405,18 @@
             <div class="modal-content">
                 <h4>➕ Ajouter un nouveau champ</h4>
                 <label>Type de champ :</label>
-                <select id="newFieldType">
+                <select id="newFieldType" onchange="updateFieldLabel('new')">
                     <option value="Texte">📝 Champ texte</option>
+                    <option value="Nombre">🔢 Nombre</option>
                     <option value="Date">📅 Date</option>
+                    <option value="MultiOption">☰ Champ multi-option</option>
                     <option value="CodePostal">📮 Code postal</option>
+                    <option value="Ville">🏙️ Ville</option>
+                    <option value="Poste">💼 Poste</option>
+                    <option value="Comptable">📊 Comptable</option>
                 </select>
                 <label>Libellé du champ :</label>
-                <input type="text" id="newFieldLabel" placeholder="Ex: Nom du client, Date de naissance..." />
+                <input type="text" id="newFieldLabel" placeholder="Saisissez le nom du champ..." />
                 <div class="checkbox-container">
                     <input type="checkbox" id="newFieldRequired" />
                     <label>Champ obligatoire</label>
@@ -337,10 +433,15 @@
             <div class="modal-content">
                 <h4>✏️ Modifier le champ</h4>
                 <label>Type de champ :</label>
-                <select id="editFieldType">
+                <select id="editFieldType" onchange="updateFieldLabel('edit')">
                     <option value="Texte">📝 Champ texte</option>
+                    <option value="Nombre">🔢 Nombre</option>
                     <option value="Date">📅 Date</option>
+                    <option value="MultiOption">☰ Champ multi-option</option>
                     <option value="CodePostal">📮 Code postal</option>
+                    <option value="Ville">🏙️ Ville</option>
+                    <option value="Poste">💼 Poste</option>
+                    <option value="Comptable">📊 Comptable</option>
                 </select>
                 <label>Libellé du champ :</label>
                 <input type="text" id="editFieldLabel" />
@@ -378,6 +479,107 @@
         let fieldPreview = document.getElementById('fieldPreview');
         let pendingFieldData = null;
 
+        // Définir les libellés prédéfinis pour chaque type de champ
+        const predefinedLabels = {
+            'Date': 'Date',
+            'MultiOption': 'Multi-option',
+            'CodePostal': 'Code postal',
+            'Ville': 'Ville',
+            'Poste': 'Poste',
+            'Comptable': 'Comptable'
+        };
+
+        // Mettre à jour le libellé selon le type de champ sélectionné
+        function updateFieldLabel(modalType) {
+            const typeSelect = document.getElementById(modalType + 'FieldType');
+            const labelInput = document.getElementById(modalType + 'FieldLabel');
+            const selectedType = typeSelect.value;
+            
+            if (predefinedLabels[selectedType]) {
+                labelInput.value = predefinedLabels[selectedType];
+                labelInput.disabled = true;
+                labelInput.style.backgroundColor = '#f8f9fa';
+                labelInput.style.color = '#6c757d';
+            } else {
+                labelInput.disabled = false;
+                labelInput.style.backgroundColor = '';
+                labelInput.style.color = '';
+                if (labelInput.value === '' || Object.values(predefinedLabels).includes(labelInput.value)) {
+                    labelInput.value = '';
+                }
+            }
+        }
+
+        // Gestion des indentations avec Tab
+        function handleTabIndentation(e) {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                
+                const selection = window.getSelection();
+                if (selection.rangeCount > 0) {
+                    const range = selection.getRangeAt(0);
+                    
+                    if (e.shiftKey) {
+                        // Shift+Tab : Supprimer l'indentation
+                        removeIndentation(range);
+                    } else {
+                        // Tab : Ajouter l'indentation
+                        addIndentation(range);
+                    }
+                }
+            }
+        }
+
+        function addIndentation(range) {
+            // Créer un span pour l'indentation (équivalent à 4 espaces)
+            const indentSpan = document.createElement('span');
+            indentSpan.innerHTML = '&nbsp;&nbsp;&nbsp;&nbsp;';
+            indentSpan.className = 'tab-indent';
+            
+            range.deleteContents();
+            range.insertNode(indentSpan);
+            
+            // Positionner le curseur après l'indentation
+            range.setStartAfter(indentSpan);
+            range.collapse(true);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+        }
+
+        function removeIndentation(range) {
+            // Chercher s'il y a une indentation à supprimer avant le curseur
+            let node = range.startContainer;
+            let offset = range.startOffset;
+            
+            // Si on est dans un nœud texte, vérifier les espaces avant le curseur
+            if (node.nodeType === Node.TEXT_NODE) {
+                const text = node.textContent;
+                const beforeCursor = text.substring(0, offset);
+                
+                // Supprimer jusqu'à 4 espaces ou tabs à la fin
+                const match = beforeCursor.match(/[\s\u00A0]{1,4}$/);
+                if (match) {
+                    const newText = text.substring(0, offset - match[0].length) + text.substring(offset);
+                    node.textContent = newText;
+                    
+                    // Repositionner le curseur
+                    range.setStart(node, offset - match[0].length);
+                    range.collapse(true);
+                    const selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                }
+            }
+            // Si on est juste après un span d'indentation, le supprimer
+            else if (range.startOffset > 0) {
+                const prevNode = node.childNodes[range.startOffset - 1];
+                if (prevNode && prevNode.className === 'tab-indent') {
+                    prevNode.remove();
+                }
+            }
+        }
+
         // Ouvrir la modale d'insertion de champ
         function openInsertFieldModal() {
             // Réinitialiser les champs
@@ -385,8 +587,18 @@
             document.getElementById('newFieldLabel').value = '';
             document.getElementById('newFieldRequired').checked = false;
             
+            // Mettre à jour le libellé selon le type sélectionné
+            updateFieldLabel('new');
+            
             document.getElementById('insertFieldModal').style.display = 'block';
-            document.getElementById('newFieldLabel').focus();
+            
+            // Focus sur le bon champ selon le type
+            const labelInput = document.getElementById('newFieldLabel');
+            if (labelInput.disabled) {
+                document.getElementById('newFieldRequired').focus();
+            } else {
+                labelInput.focus();
+            }
         }
 
         function startFieldPlacement() {
@@ -551,9 +763,15 @@
 
         function editField(fieldElement) {
             currentField = fieldElement;
-            document.getElementById('editFieldType').value = fieldElement.getAttribute('data-type');
+            const fieldType = fieldElement.getAttribute('data-type');
+            
+            document.getElementById('editFieldType').value = fieldType;
             document.getElementById('editFieldLabel').value = fieldElement.getAttribute('data-label');
             document.getElementById('editFieldRequired').checked = fieldElement.getAttribute('data-required') === 'true';
+            
+            // Mettre à jour le libellé selon le type sélectionné
+            updateFieldLabel('edit');
+            
             document.getElementById('editFieldModal').style.display = 'block';
         }
 
@@ -620,6 +838,9 @@
                 closeEditFieldModal();
             }
         });
+
+        // Ajouter l'écouteur d'événements pour les touches Tab dans l'éditeur
+        editor.addEventListener('keydown', handleTabIndentation);
 
         // Empêcher la sélection des champs lors de l'édition du texte
         editor.addEventListener('selectstart', function(e) {
