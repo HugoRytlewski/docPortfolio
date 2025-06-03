@@ -1,0 +1,644 @@
+<%@ Page Language="C#" AutoEventWireup="true" CodeBehind="EditDot.aspx.cs" Inherits="LettresTypes.pages.EditDot" %>
+
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head runat="server">
+    <title>Éditeur de Document</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #f5f7fa;
+            padding: 20px;
+            margin: 0;
+        }
+
+        .editor-container {
+            background: white;
+            border: 1px solid #ccc;
+            padding: 15px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.1);
+            max-width: 900px;
+            margin: auto;
+            border-radius: 8px;
+        }
+
+        .toolbar {
+            margin-bottom: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .toolbar button {
+            padding: 8px 12px;
+            background-color: #e9ecef;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+
+        .toolbar button:hover {
+            background-color: #dee2e6;
+            border-color: #adb5bd;
+        }
+
+        .toolbar button.active {
+            background-color: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+
+        #editor {
+            min-height: 500px;
+            border: 2px solid #dee2e6;
+            padding: 20px;
+            outline: none;
+            background-color: white;
+            border-radius: 4px;
+            line-height: 1.6;
+            font-size: 14px;
+            position: relative;
+        }
+
+        #editor:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0; 
+            top: 0;
+            width: 100%; 
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 30px;
+            width: 400px;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .modal-content h4 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+
+        .modal-content label {
+            display: block;
+            margin-top: 15px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .modal-content select, .modal-content input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        .modal-content .checkbox-container {
+            display: flex;
+            align-items: center;
+            margin-top: 15px;
+        }
+
+        .modal-content .checkbox-container input {
+            margin-right: 8px;
+            width: auto;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 25px;
+        }
+
+        .modal-buttons button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+
+        .inserted-field {
+            background-color: #e3f2fd;
+            border: 2px solid #2196f3;
+            padding: 4px 8px;
+            border-radius: 6px;
+            margin: 0 2px;
+            font-style: italic;
+            cursor: pointer;
+            display: inline-block;
+            font-weight: 500;
+            color: #1976d2;
+            transition: all 0.2s;
+            user-select: none;
+        }
+
+        .inserted-field:hover {
+            background-color: #bbdefb;
+            border-color: #1976d2;
+            transform: translateY(-1px);
+        }
+
+        .inserted-field.field-date {
+            background-color: #fff3e0;
+            border-color: #ff9800;
+            color: #f57c00;
+        }
+
+        .inserted-field.field-date:hover {
+            background-color: #ffe0b2;
+            border-color: #f57c00;
+        }
+
+        .inserted-field.field-codepostal {
+            background-color: #f3e5f5;
+            border-color: #9c27b0;
+            color: #7b1fa2;
+        }
+
+        .inserted-field.field-codepostal:hover {
+            background-color: #e1bee7;
+            border-color: #7b1fa2;
+        }
+
+        .field-preview {
+            position: fixed;
+            background-color: rgba(33, 150, 243, 0.9);
+            border: 2px dashed #2196f3;
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-style: italic;
+            color: white;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+            font-size: 12px;
+            font-weight: 500;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            white-space: nowrap;
+        }
+
+        .field-preview.field-date {
+            background-color: rgba(255, 152, 0, 0.9);
+            border-color: #ff9800;
+        }
+
+        .field-preview.field-codepostal {
+            background-color: rgba(156, 39, 176, 0.9);
+            border-color: #9c27b0;
+        }
+
+        #editor.inserting-field {
+            cursor: crosshair !important;
+        }
+
+        #editor.inserting-field * {
+            cursor: crosshair !important;
+        }
+
+        .file-upload-section {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border: 1px solid #dee2e6;
+        }
+
+        .save-section {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .save-section button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .save-section button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    <form id="form1" runat="server">
+        <div class="editor-container">
+            <h2>📝 Éditeur de document .dot</h2>
+
+            <div class="file-upload-section">
+                <asp:FileUpload ID="FileUpload1" runat="server" />
+                <asp:Button ID="btnUpload" runat="server" Text="📂 Charger le fichier" OnClick="btnUpload_Click" />
+            </div>
+
+            <div class="toolbar">
+                <button type="button" onclick="execCmd('bold')" title="Gras">🗹 Gras</button>
+                <button type="button" onclick="execCmd('italic')" title="Italique">𝐼 Italique</button>
+                <button type="button" onclick="execCmd('underline')" title="Souligné">U̲ Souligné</button>
+                <button type="button" onclick="execCmd('insertUnorderedList')" title="Liste à puces">• Liste</button>
+                <button type="button" onclick="execCmd('insertOrderedList')" title="Liste numérotée">1. Liste</button>
+                <button type="button" onclick="execCmd('justifyLeft')" title="Aligné à gauche">⇤ Gauche</button>
+                <button type="button" onclick="execCmd('justifyCenter')" title="Centré">⬌ Centre</button>
+                <button type="button" onclick="execCmd('justifyRight')" title="Aligné à droite">⇥ Droite</button>
+                <button type="button" onclick="openInsertFieldModal()" title="Ajouter un champ">➕ Ajouter un champ</button>
+            </div>
+
+            <div id="editor" contenteditable="true">
+                <asp:Literal ID="LiteralContent" runat="server"></asp:Literal>
+            </div>
+
+            <div class="save-section">
+                <asp:HiddenField ID="HiddenHtmlContent" runat="server" />
+                <asp:Button ID="btnSave" runat="server" Text="💾 Enregistrer le document" OnClick="btnSave_Click" />
+            </div>
+        </div>
+
+        <!-- MODALE POUR AJOUTER UN CHAMP -->
+        <div class="modal" id="insertFieldModal">
+            <div class="modal-content">
+                <h4>➕ Ajouter un nouveau champ</h4>
+                <label>Type de champ :</label>
+                <select id="newFieldType">
+                    <option value="Texte">📝 Champ texte</option>
+                    <option value="Date">📅 Date</option>
+                    <option value="CodePostal">📮 Code postal</option>
+                </select>
+                <label>Libellé du champ :</label>
+                <input type="text" id="newFieldLabel" placeholder="Ex: Nom du client, Date de naissance..." />
+                <div class="checkbox-container">
+                    <input type="checkbox" id="newFieldRequired" />
+                    <label>Champ obligatoire</label>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn-primary" onclick="insertNewField()">✅ Insérer</button>
+                    <button type="button" class="btn-secondary" onclick="closeInsertFieldModal()">❌ Annuler</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODALE POUR MODIFIER LE CHAMP -->
+        <div class="modal" id="editFieldModal">
+            <div class="modal-content">
+                <h4>✏️ Modifier le champ</h4>
+                <label>Type de champ :</label>
+                <select id="editFieldType">
+                    <option value="Texte">📝 Champ texte</option>
+                    <option value="Date">📅 Date</option>
+                    <option value="CodePostal">📮 Code postal</option>
+                </select>
+                <label>Libellé du champ :</label>
+                <input type="text" id="editFieldLabel" />
+                <div class="checkbox-container">
+                    <input type="checkbox" id="editFieldRequired" />
+                    <label>Champ obligatoire</label>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn-primary" onclick="applyFieldChanges()">✅ Appliquer</button>
+                    <button type="button" class="btn-danger" onclick="deleteField()">🗑️ Supprimer</button>
+                    <button type="button" class="btn-secondary" onclick="closeEditFieldModal()">❌ Annuler</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Aperçu du champ -->
+        <div id="fieldPreview" class="field-preview">[Champ]</div>
+    </form>
+
+    <script>
+        let currentField = null;
+        let editor = document.getElementById('editor');
+
+        function execCmd(command) {
+            document.execCommand(command, false, null);
+            editor.focus();
+        }
+
+        // Sauvegarder le contenu avant soumission
+        document.getElementById('<%= btnSave.ClientID %>').addEventListener('click', function () {
+            document.getElementById('<%= HiddenHtmlContent.ClientID %>').value = editor.innerHTML;
+        });
+
+        let isInsertingField = false;
+        let fieldPreview = document.getElementById('fieldPreview');
+        let pendingFieldData = null;
+
+        // Ouvrir la modale d'insertion de champ
+        function openInsertFieldModal() {
+            // Réinitialiser les champs
+            document.getElementById('newFieldType').value = 'Texte';
+            document.getElementById('newFieldLabel').value = '';
+            document.getElementById('newFieldRequired').checked = false;
+            
+            document.getElementById('insertFieldModal').style.display = 'block';
+            document.getElementById('newFieldLabel').focus();
+        }
+
+        function startFieldPlacement() {
+            const type = document.getElementById('newFieldType').value;
+            const label = document.getElementById('newFieldLabel').value.trim();
+            const required = document.getElementById('newFieldRequired').checked;
+
+            if (!label) {
+                alert('Veuillez saisir un libellé pour le champ.');
+                return;
+            }
+
+            // Stocker les données du champ à insérer
+            pendingFieldData = { type, label, required };
+            
+            // Fermer la modale
+            closeInsertFieldModal();
+            
+            // Activer le mode placement
+            isInsertingField = true;
+            editor.style.cursor = 'crosshair';
+            
+            // Configurer l'aperçu
+            const displayText = `${label}${required ? ' *' : ''}`;
+            fieldPreview.textContent = displayText;
+            fieldPreview.className = 'field-preview field-' + type.toLowerCase();
+            fieldPreview.style.display = 'block';
+            
+            // Ajouter les écouteurs d'événements
+            document.addEventListener('mousemove', handleMouseMove);
+            editor.addEventListener('click', handleFieldPlacement);
+            document.addEventListener('keydown', handleEscapeKey);
+            
+            // Ajouter un message d'aide
+            showPlacementHelp();
+        }
+
+        function handleMouseMove(e) {
+            if (!isInsertingField) return;
+            
+            fieldPreview.style.left = (e.pageX + 15) + 'px';
+            fieldPreview.style.top = (e.pageY - 10) + 'px';
+        }
+
+        function handleFieldPlacement(e) {
+            if (!isInsertingField) return;
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Vérifier que le clic est dans l'éditeur
+            if (!editor.contains(e.target) && e.target !== editor) {
+                return;
+            }
+            
+            // Créer le champ à la position du clic
+            insertFieldAtPosition(e);
+            
+            // Arrêter le mode placement
+            stopFieldPlacement();
+        }
+
+        function insertFieldAtPosition(e) {
+            // Créer l'élément span pour le champ
+            const fieldSpan = document.createElement('span');
+            fieldSpan.className = 'inserted-field field-' + pendingFieldData.type.toLowerCase();
+            fieldSpan.setAttribute('data-type', pendingFieldData.type);
+            fieldSpan.setAttribute('data-label', pendingFieldData.label);
+            fieldSpan.setAttribute('data-required', pendingFieldData.required.toString());
+            fieldSpan.setAttribute('contenteditable', 'false');
+            fieldSpan.setAttribute('title', 'Double-cliquez pour modifier ce champ');
+            
+            // Texte affiché
+            const displayText = `${pendingFieldData.label}${pendingFieldData.required ? ' *' : ''}`;
+            fieldSpan.textContent = displayText;
+
+            // Événement pour modifier le champ
+            fieldSpan.addEventListener('dblclick', function(event) {
+                event.preventDefault();
+                event.stopPropagation();
+                editField(fieldSpan);
+            });
+
+            // Trouver la position exacte dans le texte
+            const range = document.caretRangeFromPoint(e.clientX, e.clientY);
+            if (range) {
+                // Insérer le champ à la position du clic
+                range.insertNode(fieldSpan);
+                
+                // Ajouter un espace après le champ
+                const spaceNode = document.createTextNode(' ');
+                range.setStartAfter(fieldSpan);
+                range.insertNode(spaceNode);
+                
+                // Positionner le curseur après l'espace
+                range.setStartAfter(spaceNode);
+                range.collapse(true);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+            }
+        }
+
+        function stopFieldPlacement() {
+            isInsertingField = false;
+            editor.style.cursor = 'text';
+            fieldPreview.style.display = 'none';
+            
+            // Supprimer les écouteurs d'événements
+            document.removeEventListener('mousemove', handleMouseMove);
+            editor.removeEventListener('click', handleFieldPlacement);
+            document.removeEventListener('keydown', handleEscapeKey);
+            
+            // Supprimer le message d'aide
+            hidePlacementHelp();
+            
+            pendingFieldData = null;
+            editor.focus();
+        }
+
+        function handleEscapeKey(e) {
+            if (e.key === 'Escape' && isInsertingField) {
+                stopFieldPlacement();
+            }
+        }
+
+        function showPlacementHelp() {
+            // Créer un message d'aide temporaire
+            const helpDiv = document.createElement('div');
+            helpDiv.id = 'placementHelp';
+            helpDiv.style.cssText = `
+                position: fixed;
+                top: 10px;
+                left: 50%;
+                transform: translateX(-50%);
+                background-color: #007bff;
+                color: white;
+                padding: 10px 20px;
+                border-radius: 6px;
+                z-index: 1001;
+                font-size: 14px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            `;
+            helpDiv.textContent = '📍 Cliquez à l\'endroit où vous souhaitez insérer le champ (Échap pour annuler)';
+            document.body.appendChild(helpDiv);
+        }
+
+        function hidePlacementHelp() {
+            const helpDiv = document.getElementById('placementHelp');
+            if (helpDiv) {
+                helpDiv.remove();
+            }
+        }
+
+        function closeInsertFieldModal() {
+            document.getElementById('insertFieldModal').style.display = 'none';
+        }
+
+        function insertNewField() {
+            startFieldPlacement();
+        }
+
+        function editField(fieldElement) {
+            currentField = fieldElement;
+            document.getElementById('editFieldType').value = fieldElement.getAttribute('data-type');
+            document.getElementById('editFieldLabel').value = fieldElement.getAttribute('data-label');
+            document.getElementById('editFieldRequired').checked = fieldElement.getAttribute('data-required') === 'true';
+            document.getElementById('editFieldModal').style.display = 'block';
+        }
+
+        function closeEditFieldModal() {
+            document.getElementById('editFieldModal').style.display = 'none';
+            currentField = null;
+        }
+
+        function applyFieldChanges() {
+            if (!currentField) return;
+
+            const type = document.getElementById('editFieldType').value;
+            const label = document.getElementById('editFieldLabel').value.trim();
+            const required = document.getElementById('editFieldRequired').checked;
+
+            if (!label) {
+                alert('Veuillez saisir un libellé pour le champ.');
+                return;
+            }
+
+            // Mettre à jour les attributs
+            currentField.setAttribute('data-type', type);
+            currentField.setAttribute('data-label', label);
+            currentField.setAttribute('data-required', required.toString());
+            
+            // Mettre à jour la classe CSS
+            currentField.className = 'inserted-field field-' + type.toLowerCase();
+            
+            // Mettre à jour le texte affiché
+            const displayText = `${label}${required ? ' *' : ''}`;
+            currentField.textContent = displayText;
+
+            closeEditFieldModal();
+            editor.focus();
+        }
+
+        function deleteField() {
+            if (!currentField) return;
+            
+            if (confirm('Êtes-vous sûr de vouloir supprimer ce champ ?')) {
+                currentField.remove();
+                closeEditFieldModal();
+                editor.focus();
+            }
+        }
+
+        // Gérer les clics sur les modales pour les fermer
+        document.getElementById('insertFieldModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeInsertFieldModal();
+            }
+        });
+
+        document.getElementById('editFieldModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeEditFieldModal();
+            }
+        });
+
+        // Gérer la touche Échap pour fermer les modales
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && !isInsertingField) {
+                closeInsertFieldModal();
+                closeEditFieldModal();
+            }
+        });
+
+        // Empêcher la sélection des champs lors de l'édition du texte
+        editor.addEventListener('selectstart', function(e) {
+            if (e.target.classList.contains('inserted-field')) {
+                e.preventDefault();
+            }
+        });
+
+        // Initialiser les événements sur les champs existants au chargement
+        document.addEventListener('DOMContentLoaded', function() {
+            const existingFields = editor.querySelectorAll('.inserted-field');
+            existingFields.forEach(function(field) {
+                field.addEventListener('dblclick', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    editField(field);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
