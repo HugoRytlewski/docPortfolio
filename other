@@ -371,23 +371,24 @@
 <body>
     <form id="form1" runat="server">
         <div class="editor-container">
-            <h2>📝 Éditeur de document .dot</h2>
+            <h2>Éditeur de document .dot</h2>
 
             <div class="file-upload-section">
                 <asp:FileUpload ID="FileUpload1" runat="server" />
-                <asp:Button ID="btnUpload" runat="server" Text="📂 Charger le fichier" OnClick="btnUpload_Click" />
+                <asp:Button ID="btnUpload" runat="server" Text="Charger le fichier" OnClick="btnUpload_Click" />
             </div>
 
             <div class="toolbar">
-                <button type="button" onclick="execCmd('bold')" title="Gras">🗹 Gras</button>
-                <button type="button" onclick="execCmd('italic')" title="Italique">𝐼 Italique</button>
-                <button type="button" onclick="execCmd('underline')" title="Souligné">U̲ Souligné</button>
-                <button type="button" onclick="execCmd('insertUnorderedList')" title="Liste à puces">• Liste</button>
-                <button type="button" onclick="execCmd('insertOrderedList')" title="Liste numérotée">1. Liste</button>
-                <button type="button" onclick="execCmd('justifyLeft')" title="Aligné à gauche">⇤ Gauche</button>
-                <button type="button" onclick="execCmd('justifyCenter')" title="Centré">⬌ Centre</button>
-                <button type="button" onclick="execCmd('justifyRight')" title="Aligné à droite">⇥ Droite</button>
-                <button type="button" onclick="openInsertFieldModal()" title="Ajouter un champ">➕ Ajouter un champ</button>
+                <button type="button" onclick="execCmd('bold')" title="Gras">Gras</button>
+                <button type="button" onclick="execCmd('italic')" title="Italique">Italique</button>
+                <button type="button" onclick="execCmd('underline')" title="Souligné">Souligné</button>
+                <button type="button" onclick="execCmd('insertUnorderedList')" title="Liste à puces">Liste</button>
+                <button type="button" onclick="execCmd('insertOrderedList')" title="Liste numérotée">Liste</button>
+                <button type="button" onclick="execCmd('justifyLeft')" title="Aligné à gauche">Gauche</button>
+                <button type="button" onclick="execCmd('justifyCenter')" title="Centré">Centre</button>
+                <button type="button" onclick="execCmd('justifyRight')" title="Aligné à droite">Droite</button>
+                <button type="button" onclick="openInsertFieldModal()" title="Ajouter un champ">Ajouter un champ</button>
+                <button type="button" onclick="convertTagsToFields()" title="Convertir les balises">Convertir les balises</button>
             </div>
 
             <div id="editor" contenteditable="true">
@@ -396,24 +397,24 @@
 
             <div class="save-section">
                 <asp:HiddenField ID="HiddenHtmlContent" runat="server" />
-                <asp:Button ID="btnSave" runat="server" Text="💾 Enregistrer le document" OnClick="btnSave_Click" />
+                <asp:Button ID="btnSave" runat="server" Text="Enregistrer le document" OnClick="btnSave_Click" />
             </div>
         </div>
 
         <!-- MODALE POUR AJOUTER UN CHAMP -->
         <div class="modal" id="insertFieldModal">
             <div class="modal-content">
-                <h4>➕ Ajouter un nouveau champ</h4>
+                <h4>Ajouter un nouveau champ</h4>
                 <label>Type de champ :</label>
                 <select id="newFieldType" onchange="updateFieldLabel('new')">
-                    <option value="Texte">📝 Champ texte</option>
-                    <option value="Nombre">🔢 Nombre</option>
-                    <option value="Date">📅 Date</option>
-                    <option value="MultiOption">☰ Champ multi-option</option>
-                    <option value="CodePostal">📮 Code postal</option>
-                    <option value="Ville">🏙️ Ville</option>
-                    <option value="Poste">💼 Poste</option>
-                    <option value="Comptable">📊 Comptable</option>
+                    <option value="Texte">Champ texte</option>
+                    <option value="Nombre">Nombre</option>
+                    <option value="Date">Date</option>
+                    <option value="MultiOption">Champ multi-option</option>
+                    <option value="CodePostal">Code postal</option>
+                    <option value="Ville">Ville</option>
+                    <option value="Poste">Poste</option>
+                    <option value="Comptable">Comptable</option>
                 </select>
                 <label>Libellé du champ :</label>
                 <input type="text" id="newFieldLabel" placeholder="Saisissez le nom du champ..." />
@@ -422,8 +423,8 @@
                     <label>Champ obligatoire</label>
                 </div>
                 <div class="modal-buttons">
-                    <button type="button" class="btn-primary" onclick="insertNewField()">✅ Insérer</button>
-                    <button type="button" class="btn-secondary" onclick="closeInsertFieldModal()">❌ Annuler</button>
+                    <button type="button" class="btn-primary" onclick="insertNewField()">Insérer</button>
+                    <button type="button" class="btn-secondary" onclick="closeInsertFieldModal()">Annuler</button>
                 </div>
             </div>
         </div>
@@ -431,17 +432,17 @@
         <!-- MODALE POUR MODIFIER LE CHAMP -->
         <div class="modal" id="editFieldModal">
             <div class="modal-content">
-                <h4>✏️ Modifier le champ</h4>
+                <h4>Modifier le champ</h4>
                 <label>Type de champ :</label>
                 <select id="editFieldType" onchange="updateFieldLabel('edit')">
-                    <option value="Texte">📝 Champ texte</option>
-                    <option value="Nombre">🔢 Nombre</option>
-                    <option value="Date">📅 Date</option>
-                    <option value="MultiOption">☰ Champ multi-option</option>
-                    <option value="CodePostal">📮 Code postal</option>
-                    <option value="Ville">🏙️ Ville</option>
-                    <option value="Poste">💼 Poste</option>
-                    <option value="Comptable">📊 Comptable</option>
+                    <option value="Texte">Champ texte</option>
+                    <option value="Nombre">Nombre</option>
+                    <option value="Date">Date</option>
+                    <option value="MultiOption">Champ multi-option</option>
+                    <option value="CodePostal">Code postal</option>
+                    <option value="Ville">Ville</option>
+                    <option value="Poste">Poste</option>
+                    <option value="Comptable">Comptable</option>
                 </select>
                 <label>Libellé du champ :</label>
                 <input type="text" id="editFieldLabel" />
@@ -450,9 +451,9 @@
                     <label>Champ obligatoire</label>
                 </div>
                 <div class="modal-buttons">
-                    <button type="button" class="btn-primary" onclick="applyFieldChanges()">✅ Appliquer</button>
-                    <button type="button" class="btn-danger" onclick="deleteField()">🗑️ Supprimer</button>
-                    <button type="button" class="btn-secondary" onclick="closeEditFieldModal()">❌ Annuler</button>
+                    <button type="button" class="btn-primary" onclick="applyFieldChanges()">Appliquer</button>
+                    <button type="button" class="btn-danger" onclick="deleteField()">Supprimer</button>
+                    <button type="button" class="btn-secondary" onclick="closeEditFieldModal()">Annuler</button>
                 </div>
             </div>
         </div>
@@ -578,6 +579,64 @@
                     prevNode.remove();
                 }
             }
+        }
+
+        // Fonction pour convertir les balises < > en champs
+        function convertTagsToFields() {
+            const editorContent = editor.innerHTML;
+            const tagRegex = /<([^>]+)>/g;
+            let newContent = editorContent;
+            let match;
+            
+            while ((match = tagRegex.exec(editorContent)) !== null) {
+                const fullTag = match[0];
+                const tagContent = match[1];
+                
+                // Déterminer le type de champ en fonction du contenu
+                let fieldType = 'Texte';
+                let fieldLabel = tagContent;
+                let fieldRequired = false;
+                
+                // Détection des types spéciaux
+                if (tagContent.toLowerCase().includes('date')) {
+                    fieldType = 'Date';
+                } else if (tagContent.toLowerCase().includes('code postal') || tagContent.toLowerCase().includes('codepostal')) {
+                    fieldType = 'CodePostal';
+                } else if (tagContent.toLowerCase().includes('ville')) {
+                    fieldType = 'Ville';
+                } else if (tagContent.toLowerCase().includes('poste')) {
+                    fieldType = 'Poste';
+                } else if (tagContent.toLowerCase().includes('comptable')) {
+                    fieldType = 'Comptable';
+                } else if (tagContent.toLowerCase().includes('nombre') || tagContent.toLowerCase().includes('numéro') || tagContent.toLowerCase().includes('numero')) {
+                    fieldType = 'Nombre';
+                } else if (tagContent.toLowerCase().includes('option') || tagContent.toLowerCase().includes('choix')) {
+                    fieldType = 'MultiOption';
+                }
+                
+                // Créer le HTML du champ
+                const fieldHtml = `<span class="inserted-field field-${fieldType.toLowerCase()}" data-type="${fieldType}" data-label="${fieldLabel}" data-required="${fieldRequired}" contenteditable="false" title="Double-cliquez pour modifier ce champ">${fieldLabel}${fieldRequired ? ' *' : ''}</span>`;
+                
+                // Remplacer la balise par le champ
+                newContent = newContent.replace(fullTag, fieldHtml);
+            }
+            
+            // Mettre à jour le contenu de l'éditeur
+            editor.innerHTML = newContent;
+            
+            // Réattacher les événements aux nouveaux champs
+            attachFieldEvents();
+        }
+
+        function attachFieldEvents() {
+            const fields = editor.querySelectorAll('.inserted-field');
+            fields.forEach(field => {
+                field.addEventListener('dblclick', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    editField(field);
+                });
+            });
         }
 
         // Ouvrir la modale d'insertion de champ
@@ -742,7 +801,7 @@
                 font-size: 14px;
                 box-shadow: 0 2px 10px rgba(0,0,0,0.3);
             `;
-            helpDiv.textContent = '📍 Cliquez à l\'endroit où vous souhaitez insérer le champ (Échap pour annuler)';
+            helpDiv.textContent = 'Cliquez à l\'endroit où vous souhaitez insérer le champ (Échap pour annuler)';
             document.body.appendChild(helpDiv);
         }
 
@@ -851,14 +910,7 @@
 
         // Initialiser les événements sur les champs existants au chargement
         document.addEventListener('DOMContentLoaded', function() {
-            const existingFields = editor.querySelectorAll('.inserted-field');
-            existingFields.forEach(function(field) {
-                field.addEventListener('dblclick', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    editField(field);
-                });
-            });
+            attachFieldEvents();
         });
     </script>
 </body>
