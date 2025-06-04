@@ -1,41 +1,238 @@
-<html xmlns:o="urn:schemas-microsoft-com:office:office"
-      xmlns:w="urn:schemas-microsoft-com:office:word"
-      xmlns="http://www.w3.org/TR/REC-html40">
-<head>
-    <style>
-        @page {
-            mso-header-space:1in;
-            mso-footer-space:1in;
-        }
-        div.header {
-            mso-element:header;
-            display: block;
-        }
-        div.footer {
-            mso-element:footer;
-            display: block;
-        }
-    </style>
-</head>
-<body>
-    <div class="header">Ceci est l’en-tête</div>
+<%@ Page Title="" Language="C#" MasterPageFile="~/composant/nav.Master" AutoEventWireup="true" CodeBehind="editor.aspx.cs" Inherits="LettresTypes.pages.editor" %>
+<asp:Content ID="Content1" ContentPlaceHolderID="head" runat="server">
+</asp:Content>
+<asp:Content ID="Content2" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
+                <link href="../styles/editor.css" rel="stylesheet" />
+        <div class="editor-container">
+            <h2>Éditeur de document .dot</h2>
 
-    <div id="editor" contenteditable="true">Contenu du document...</div>
+            <div class="file-upload-section">
+                <asp:FileUpload ID="FileUpload1" runat="server" AllowMultiple="true" />
+                <asp:Button ID="btnUpload" runat="server" Text="Charger le fichier" OnClientClick="closeInsertFieldModal()" OnClick="btnUpload_Click" />
+            </div>
 
-    <div class="footer">Ceci est le pied de page</div>
-</body>
-</html>
-function handleImageUpload(event) {
-    const file = event.target.files[0];
-    if (!file) return;
+            <div class="toolbar">
+                <button type="button" onclick="execCmd('bold')" title="Gras">Gras</button>
+                <button type="button" onclick="execCmd('italic')" title="Italique">Italique</button>
+                <button type="button" onclick="execCmd('underline')" title="Souligné">Souligné</button>
+                <button type="button" onclick="execCmd('insertUnorderedList')" title="Liste à puces">Liste</button>
+                <button type="button" onclick="execCmd('insertOrderedList')" title="Liste numérotée">Liste</button>
+                <button type="button" onclick="execCmd('justifyLeft')" title="Aligné à gauche">Gauche</button>
+                <button type="button" onclick="execCmd('justifyCenter')" title="Centré">Centre</button>
+                <button type="button" onclick="execCmd('justifyRight')" title="Aligné à droite">Droite</button>
+                <button type="button" onclick="openInsertFieldModal()" title="Ajouter un champ">Ajouter un champ</button>
+                <button type="button" onclick="convertTagsToFields()" title="Convertir les balises">Convertir les balises</button>
+                <button type="button" onclick="openHeaderFooterModal()" title="Gérer en-tête/pied de page">En-tête/Pied</button>
+                <button type="button" onclick="document.getElementById('imageUpload').click()" title="Insérer une image">Image</button>
+                <input type="file" id="imageUpload" accept="image/*" style="display:none" onchange="handleImageUpload(this)" />
+            </div>
 
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const img = document.createElement("img");
-        img.src = e.target.result;
-        img.alt = file.name;
-        img.style.maxWidth = "100%";
-        insertNodeAtCursor(img);
-    };
-    reader.readAsDataURL(file);
-}
+            <!-- Section en-tête -->
+            <div id="headerSection" class="header-footer-section" contenteditable="true">
+                <asp:Literal ID="LiteralHeader" runat="server"></asp:Literal>
+            </div>
+
+            <!-- Éditeur principal -->
+            <div id="editor" contenteditable="true">
+                <asp:Literal ID="LiteralContent" runat="server"></asp:Literal>
+            </div>
+
+            <!-- Section pied-de-page -->
+            <div id="footerSection" class="header-footer-section" contenteditable="true">
+                <asp:Literal ID="LiteralFooter" runat="server"></asp:Literal>
+            </div>
+
+            <div class="save-section">
+                <asp:HiddenField ClientIDMode="Static" ID="HiddenHtmlContent" runat="server" />
+                <asp:HiddenField ClientIDMode="Static" ID="HiddenHeaderContent" runat="server" />
+                <asp:HiddenField ClientIDMode="Static" ID="HiddenFooterContent" runat="server" />
+                <asp:Button ID="btnSave" ClientIDMode="Static"  runat="server" Text="Enregistrer le document" OnClick="btnSave_Click" />
+            </div>
+        </div>
+
+        <!-- MODALE POUR HEADER/FOOTER -->
+        <div class="modal" id="headerFooterModal">
+            <div class="modal-content">
+                <h4>Gestion des en-têtes et pieds-de-page</h4>
+                <div class="header-footer-tabs">
+                    <button class="tab-button active" onclick="openTab('headerTab')">En-tête</button>
+                    <button class="tab-button" onclick="openTab('footerTab')">Pied-de-page</button>
+                </div>
+                
+                <div id="headerTab" class="tab-content active">
+                    <div id="headerEditor" class="header-footer-editor" contenteditable="true"></div>
+                </div>
+                
+                <div id="footerTab" class="tab-content">
+                    <div id="footerEditor" class="header-footer-editor" contenteditable="true"></div>
+                </div>
+                
+                <div class="modal-buttons">
+                    <button type="button" class="btn-primary" onclick="saveHeaderFooter()">Enregistrer</button>
+                    <button type="button" class="btn-secondary" onclick="closeHeaderFooterModal()">Annuler</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODALE POUR AJOUTER UN CHAMP (existant) -->
+        <!-- ... (conserver le code existant des modales champ) ... -->
+
+        <script>
+            // ... (conserver les fonctions existantes) ...
+
+            // Gestion des images
+            function handleImageUpload(input) {
+                if (input.files && input.files[0]) {
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(e) {
+                        insertImageIntoEditor(e.target.result);
+                    };
+                    
+                    reader.readAsDataURL(input.files[0]);
+                }
+            }
+
+            function insertImageIntoEditor(imageData) {
+                const img = document.createElement('img');
+                img.src = imageData;
+                img.style.maxWidth = '100%';
+                img.style.height = 'auto';
+                
+                // Insérer à la position du curseur ou à la fin
+                const selection = window.getSelection();
+                if (selection.rangeCount > 0) {
+                    const range = selection.getRangeAt(0);
+                    range.deleteContents();
+                    range.insertNode(img);
+                    
+                    // Ajouter un saut de ligne après l'image
+                    const br = document.createElement('br');
+                    range.setStartAfter(img);
+                    range.insertNode(br);
+                    
+                    // Positionner le curseur après l'image
+                    range.setStartAfter(br);
+                    range.collapse(true);
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                } else {
+                    editor.appendChild(img);
+                    editor.appendChild(document.createElement('br'));
+                }
+                
+                editor.focus();
+            }
+
+            // Gestion des en-têtes/pieds-de-page
+            function openHeaderFooterModal() {
+                // Charger le contenu actuel
+                document.getElementById('headerEditor').innerHTML = document.getElementById('headerSection').innerHTML;
+                document.getElementById('footerEditor').innerHTML = document.getElementById('footerSection').innerHTML;
+                
+                // Ouvrir la modale
+                document.getElementById('headerFooterModal').style.display = 'block';
+            }
+
+            function closeHeaderFooterModal() {
+                document.getElementById('headerFooterModal').style.display = 'none';
+            }
+
+            function saveHeaderFooter() {
+                // Sauvegarder le contenu
+                document.getElementById('headerSection').innerHTML = document.getElementById('headerEditor').innerHTML;
+                document.getElementById('footerSection').innerHTML = document.getElementById('footerEditor').innerHTML;
+                
+                // Mettre à jour les champs cachés
+                document.getElementById('HiddenHeaderContent').value = encodeHtml(document.getElementById('headerEditor').innerHTML);
+                document.getElementById('HiddenFooterContent').value = encodeHtml(document.getElementById('footerEditor').innerHTML);
+                
+                closeHeaderFooterModal();
+            }
+
+            function openTab(tabName) {
+                // Masquer tous les onglets
+                document.querySelectorAll('.tab-content').forEach(tab => {
+                    tab.classList.remove('active');
+                });
+                
+                // Désactiver tous les boutons d'onglet
+                document.querySelectorAll('.tab-button').forEach(button => {
+                    button.classList.remove('active');
+                });
+                
+                // Activer l'onglet sélectionné
+                document.getElementById(tabName).classList.add('active');
+                event.currentTarget.classList.add('active');
+            }
+
+            // Modifier la fonction de sauvegarde pour inclure header/footer
+            document.getElementById('btnSave').addEventListener('click', function() {
+                document.getElementById('HiddenHtmlContent').value = encodeHtml(editor.innerHTML);
+                document.getElementById('HiddenHeaderContent').value = encodeHtml(document.getElementById('headerSection').innerHTML);
+                document.getElementById('HiddenFooterContent').value = encodeHtml(document.getElementById('footerSection').innerHTML);
+            });
+
+            // ... (rester du code JavaScript existant) ...
+        </script>
+
+        <style>
+            /* Ajouter ces styles à votre fichier editor.css */
+            .header-footer-section {
+                border: 1px dashed #ccc;
+                padding: 15px;
+                margin: 10px 0;
+                min-height: 50px;
+            }
+            
+            .header-footer-section:before {
+                content: attr(id);
+                display: block;
+                font-size: 0.8em;
+                color: #666;
+                margin-bottom: 5px;
+            }
+            
+            .header-footer-editor {
+                min-height: 150px;
+                border: 1px solid #ddd;
+                padding: 10px;
+                margin: 10px 0;
+            }
+            
+            .header-footer-tabs {
+                display: flex;
+                border-bottom: 1px solid #ddd;
+                margin-bottom: 15px;
+            }
+            
+            .tab-button {
+                padding: 8px 15px;
+                background: #f1f1f1;
+                border: none;
+                cursor: pointer;
+                margin-right: 5px;
+            }
+            
+            .tab-button.active {
+                background: #007bff;
+                color: white;
+            }
+            
+            .tab-content {
+                display: none;
+            }
+            
+            .tab-content.active {
+                display: block;
+            }
+            
+            /* Style pour les images dans l'éditeur */
+            #editor img, .header-footer-editor img {
+                max-width: 100%;
+                height: auto;
+                display: block;
+                margin: 5px 0;
+            }
+        </style>
+</asp:Content>
