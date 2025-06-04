@@ -1,63 +1,41 @@
-<button type="button" onclick="insertImage()">🖼️ Image</button>
-<button type="button" onclick="insertHeader()">📄 En-tête</button>
-<button type="button" onclick="insertFooter()">📄 Pied de page</button>
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+    <style>
+        @page {
+            mso-header-space:1in;
+            mso-footer-space:1in;
+        }
+        div.header {
+            mso-element:header;
+            display: block;
+        }
+        div.footer {
+            mso-element:footer;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">Ceci est l’en-tête</div>
 
-function insertImage() {
-const imageUrl = prompt("Entrez l'URL de l'image :");
-if (imageUrl) {
-const img = document.createElement("img");
-img.src = imageUrl;
-img.alt = "Image insérée";
-img.style.maxWidth = "100%";
-insertNodeAtCursor(img);
-}
-}
+    <div id="editor" contenteditable="true">Contenu du document...</div>
 
-function insertHeader() {
-const header = document.createElement("div");
-header.innerText = "En-tête (cliquez pour modifier)";
-header.contentEditable = true;
-header.className = "document-header";
-header.style.borderBottom = "1px solid #ccc";
-header.style.marginBottom = "10px";
-header.style.padding = "5px";
-insertNodeAtTop(header);
-}
+    <div class="footer">Ceci est le pied de page</div>
+</body>
+</html>
+function handleImageUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
 
-function insertFooter() {
-const footer = document.createElement("div");
-footer.innerText = "Pied de page (cliquez pour modifier)";
-footer.contentEditable = true;
-footer.className = "document-footer";
-footer.style.borderTop = "1px solid #ccc";
-footer.style.marginTop = "10px";
-footer.style.padding = "5px";
-insertNodeAtBottom(footer);
-}
-
-function insertNodeAtCursor(node) {
-
-const selection = window.getSelection();
-if (selection.rangeCount > 0) {
-const range = selection.getRangeAt(0);
-range.deleteContents();
-range.insertNode(node);
-range.collapse(false);
-}
-}
-
-function insertNodeAtTop(node) {
-const editor = document.getElementById("editor");
-editor.insertBefore(node, editor.firstChild);
-}
-
-function insertNodeAtBottom(node) {
-const editor = document.getElementById("editor");
-editor.appendChild(node);
-}
-
-.document-header, .document-footer {
-background-color: #f4f4f4;
-font-weight: bold;
-font-size: 14px;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const img = document.createElement("img");
+        img.src = e.target.result;
+        img.alt = file.name;
+        img.style.maxWidth = "100%";
+        insertNodeAtCursor(img);
+    };
+    reader.readAsDataURL(file);
 }
