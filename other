@@ -1,5 +1,6 @@
 ALTER PROCEDURE [dbo].[PS_TestNav]
-@user nvarchar(max)
+@user nvarchar(max),
+@currentPage nvarchar(100) = NULL
 AS
 BEGIN
     -- Déclaration des variables
@@ -56,7 +57,8 @@ BEGIN
         IF @hrefMenu IS NULL OR @hrefMenu = ''
         BEGIN
             SET @menuLi = @menuLi + '
-            <li role="none">
+            <li role="none"' + 
+            CASE WHEN @currentPage = @hrefMenu THEN ' class="menu-item-active"' ELSE '' END + '>
                 <button type="button" 
                         aria-expanded="false" 
                         aria-controls="' + @nomMenu + 'Menu" 
@@ -69,11 +71,13 @@ BEGIN
         ELSE
         BEGIN
             SET @menuLi = @menuLi + '
-            <li role="none">
+            <li role="none"' + 
+            CASE WHEN @currentPage = @hrefMenu THEN ' class="menu-item-active"' ELSE '' END + '>
                 <a role="menuitem" 
                    href="' + @hrefMenu + '" 
                    id="BTN_' + @nomMenu + '" 
-                   class="OneSectionRGAA" 
+                   class="OneSectionRGAA' + 
+                   CASE WHEN @currentPage = @hrefMenu THEN ' menu-link-active' ELSE '' END + '" 
                    tabindex="0">
                     ' + @nomMenu + '
                 </a>'
@@ -114,10 +118,12 @@ BEGIN
 
                 -- Élément de sous-menu
                 SET @menuLi = @menuLi + '
-                    <li role="none">
+                    <li role="none"' + 
+                    CASE WHEN @currentPage = @href THEN ' class="menu-item-active"' ELSE '' END + '>
                         <a role="menuitem" 
                            tabindex="-1" 
-                           ' + CASE WHEN @href != '' THEN 'href="' + @href + '"' ELSE '' END + '>
+                           ' + CASE WHEN @href != '' THEN 'href="' + @href + '"' ELSE '' END + 
+                           CASE WHEN @currentPage = @href THEN ' class="menu-link-active"' ELSE '' END + '>
                             ' + @sousMenu + '
                         </a>'
 
@@ -151,11 +157,13 @@ BEGIN
                         WHERE IdTableSousSousMenu = @IdTableSousSousMenu
 
                         SET @menuLi = @menuLi + '
-                            <li role="none">
+                            <li role="none"' + 
+                            CASE WHEN @currentPage = @hrefSousSousmenu THEN ' class="menu-item-active"' ELSE '' END + '>
                                 <a role="menuitem" 
                                    tabindex="-1" 
                                    href="' + @hrefSousSousmenu + '" 
-                                   class="sousMenuRGAA">
+                                   class="sousMenuRGAA' + 
+                                   CASE WHEN @currentPage = @hrefSousSousmenu THEN ' menu-link-active' ELSE '' END + '">
                                     ' + @sousSousMenu + '
                                 </a>
                             </li>'
@@ -334,6 +342,32 @@ BEGIN
     cursor: pointer;
 }
 
+/* Style pour l'élément de menu actif */
+.menu-item-active {
+    position: relative;
+}
+
+.menu-item-active > button,
+.menu-item-active > a {
+    font-weight: bold;
+}
+
+.menu-item-active::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 1rem;
+    right: 1rem;
+    height: 3px;
+    background: white;
+}
+
+.menu-link-active {
+    font-weight: bold;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+}
+
 /* Menus déroulants */
 .dropdownRGAA {
     position: absolute;
@@ -413,6 +447,11 @@ BEGIN
     
     .SousSousMenuRGAA li {
         padding-left: 4rem;
+    }
+
+    .menu-item-active::after {
+        left: 0;
+        right: 0;
     }
 }
 
