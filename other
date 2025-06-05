@@ -1,238 +1,482 @@
-<%@ Page Title="" Language="C#" MasterPageFile="~/composant/nav.Master" AutoEventWireup="true" CodeBehind="editor.aspx.cs" Inherits="LettresTypes.pages.editor" %>
-<asp:Content ID="Content1" ContentPlaceHolderID="head" runat="server">
-</asp:Content>
-<asp:Content ID="Content2" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
-                <link href="../styles/editor.css" rel="stylesheet" />
-        <div class="editor-container">
-            <h2>Éditeur de document .dot</h2>
+ALTER PROCEDURE [dbo].[PS_TestNav]
+@user nvarchar(max)
+AS
+BEGIN
+    -- Déclaration des variables
+    DECLARE @id INT, @nomMenu NVARCHAR(50)
+    DECLARE @sousMenu NVARCHAR(50)
+    DECLARE @href NVARCHAR(50)
+    DECLARE @menuLi NVARCHAR(MAX) = ''
+    DECLARE @htmlHeader NVARCHAR(MAX)
+    DECLARE @htmlFooter NVARCHAR(MAX)
+    DECLARE @htmlStyle NVARCHAR(MAX)
+    DECLARE @htmlScript NVARCHAR(MAX)
+    DECLARE @roleUser INT
+    DECLARE @sousSousMenu NVARCHAR(50)
+    DECLARE @hrefSousSousmenu NVARCHAR(50)
+    DECLARE @idSousMenu int
+    DECLARE @hrefMenu nvarchar(max)
+    DECLARE @IsUnique bit
+    DECLARE @IdTableMenuPrincipal int
+    DECLARE @IdTableSousMenu int
+    DECLARE @IdTableSousSousMenu int
 
-            <div class="file-upload-section">
-                <asp:FileUpload ID="FileUpload1" runat="server" AllowMultiple="true" />
-                <asp:Button ID="btnUpload" runat="server" Text="Charger le fichier" OnClientClick="closeInsertFieldModal()" OnClick="btnUpload_Click" />
-            </div>
+    -- Récupération du rôle utilisateur
+    SET @roleUser = (SELECT TB_Utilisateurs.role FROM TB_Utilisateurs
+                    WHERE TB_Utilisateurs.UserName = @user)
 
-            <div class="toolbar">
-                <button type="button" onclick="execCmd('bold')" title="Gras">Gras</button>
-                <button type="button" onclick="execCmd('italic')" title="Italique">Italique</button>
-                <button type="button" onclick="execCmd('underline')" title="Souligné">Souligné</button>
-                <button type="button" onclick="execCmd('insertUnorderedList')" title="Liste à puces">Liste</button>
-                <button type="button" onclick="execCmd('insertOrderedList')" title="Liste numérotée">Liste</button>
-                <button type="button" onclick="execCmd('justifyLeft')" title="Aligné à gauche">Gauche</button>
-                <button type="button" onclick="execCmd('justifyCenter')" title="Centré">Centre</button>
-                <button type="button" onclick="execCmd('justifyRight')" title="Aligné à droite">Droite</button>
-                <button type="button" onclick="openInsertFieldModal()" title="Ajouter un champ">Ajouter un champ</button>
-                <button type="button" onclick="convertTagsToFields()" title="Convertir les balises">Convertir les balises</button>
-                <button type="button" onclick="openHeaderFooterModal()" title="Gérer en-tête/pied de page">En-tête/Pied</button>
-                <button type="button" onclick="document.getElementById('imageUpload').click()" title="Insérer une image">Image</button>
-                <input type="file" id="imageUpload" accept="image/*" style="display:none" onchange="handleImageUpload(this)" />
-            </div>
+    -- Table temporaire pour les menus principaux
+    DECLARE @TableMenuPrincipal TABLE (IdTableMenuPrincipal int identity not null, 
+                                      id_menu_Principal int,
+                                      nomMenu varchar(256), 
+                                      hrefMenu varchar(256), 
+                                      ok int default 0)
+    
+    INSERT INTO @TableMenuPrincipal (id_menu_Principal, nomMenu, hrefMenu)
+    SELECT t1.id, menuNom, t1.href
+    FROM TB_Menu as t1
+    INNER JOIN tb_role_menu as j ON t1.id = j.id_menu
+    WHERE isActive = 1 AND @roleUser = j.id_role
+    ORDER BY ordre
 
-            <!-- Section en-tête -->
-            <div id="headerSection" class="header-footer-section" contenteditable="true">
-                <asp:Literal ID="LiteralHeader" runat="server"></asp:Literal>
-            </div>
+    -- Construction des menus
+    WHILE EXISTS (SELECT * FROM @TableMenuPrincipal WHERE ok = 0)
+    BEGIN
+        SET @IdTableMenuPrincipal = (SELECT MIN(IdTableMenuPrincipal)
+                                    FROM @TableMenuPrincipal
+                                    WHERE ok = 0)
 
-            <!-- Éditeur principal -->
-            <div id="editor" contenteditable="true">
-                <asp:Literal ID="LiteralContent" runat="server"></asp:Literal>
-            </div>
+        SELECT @id = id_menu_Principal,
+               @nomMenu = ISNULL(nomMenu, ''),
+               @hrefMenu = ISNULL(hrefMenu, '')
+        FROM @TableMenuPrincipal
+        WHERE IdTableMenuPrincipal = @IdTableMenuPrincipal
 
-            <!-- Section pied-de-page -->
-            <div id="footerSection" class="header-footer-section" contenteditable="true">
-                <asp:Literal ID="LiteralFooter" runat="server"></asp:Literal>
-            </div>
+        -- Menu principal
+        IF @hrefMenu IS NULL OR @hrefMenu = ''
+        BEGIN
+            SET @menuLi = @menuLi + '
+            <li role="none">
+                <button type="button" 
+                        aria-expanded="false" 
+                        aria-controls="' + @nomMenu + 'Menu" 
+                        id="BTN_' + @nomMenu + '" 
+                        class="OneSectionRGAA" 
+                        tabindex="0">
+                    ' + @nomMenu + '
+                </button>'
+        END
+        ELSE
+        BEGIN
+            SET @menuLi = @menuLi + '
+            <li role="none">
+                <a role="menuitem" 
+                   href="' + @hrefMenu + '" 
+                   id="BTN_' + @nomMenu + '" 
+                   class="OneSectionRGAA" 
+                   tabindex="0">
+                    ' + @nomMenu + '
+                </a>'
+        END
 
-            <div class="save-section">
-                <asp:HiddenField ClientIDMode="Static" ID="HiddenHtmlContent" runat="server" />
-                <asp:HiddenField ClientIDMode="Static" ID="HiddenHeaderContent" runat="server" />
-                <asp:HiddenField ClientIDMode="Static" ID="HiddenFooterContent" runat="server" />
-                <asp:Button ID="btnSave" ClientIDMode="Static"  runat="server" Text="Enregistrer le document" OnClick="btnSave_Click" />
-            </div>
-        </div>
+        -- Sous-menus
+        DECLARE @TableSousMenu TABLE (IdTableSousMenu int identity not null, 
+                                     id int, 
+                                     Nom varchar(256), 
+                                     href varchar(256), 
+                                     ok int default 0)
+        
+        INSERT INTO @TableSousMenu (id, Nom, href)
+        SELECT id, Nom, href
+        FROM TB_SOUS_MENU
+        INNER JOIN TB_Role_SousMenu as j ON TB_SOUS_MENU.id = j.ID_Sous_Menu
+        WHERE isActive = 1 AND @roleUser = j.id_role AND TB_SOUS_MENU.idMenu = @id
 
-        <!-- MODALE POUR HEADER/FOOTER -->
-        <div class="modal" id="headerFooterModal">
-            <div class="modal-content">
-                <h4>Gestion des en-têtes et pieds-de-page</h4>
-                <div class="header-footer-tabs">
-                    <button class="tab-button active" onclick="openTab('headerTab')">En-tête</button>
-                    <button class="tab-button" onclick="openTab('footerTab')">Pied-de-page</button>
-                </div>
+        IF EXISTS (SELECT 1 FROM @TableSousMenu)
+        BEGIN
+            SET @menuLi = @menuLi + '
+                <ul role="menu" 
+                    id="' + @nomMenu + 'Menu" 
+                    class="dropdownRGAA" 
+                    aria-labelledby="BTN_' + @nomMenu + '">'
+
+            WHILE EXISTS (SELECT * FROM @TableSousMenu WHERE ok = 0)
+            BEGIN
+                SET @IdTableSousMenu = (SELECT MIN(IdTableSousMenu)
+                                       FROM @TableSousMenu
+                                       WHERE ok = 0)
+
+                SELECT @idSousMenu = id,
+                       @sousMenu = ISNULL(Nom, ''),
+                       @href = ISNULL(href, '')
+                FROM @TableSousMenu
+                WHERE IdTableSousMenu = @IdTableSousMenu
+
+                -- Élément de sous-menu
+                SET @menuLi = @menuLi + '
+                    <li role="none">
+                        <a role="menuitem" 
+                           tabindex="-1" 
+                           ' + CASE WHEN @href != '' THEN 'href="' + @href + '"' ELSE '' END + '>
+                            ' + @sousMenu + '
+                        </a>'
+
+                -- Sous-sous-menus
+                DECLARE @TableSousSousMenu TABLE (IdTableSousSousMenu int identity not null, 
+                                                 id int, 
+                                                 Nom varchar(256), 
+                                                 href varchar(256), 
+                                                 ok int default 0)
                 
-                <div id="headerTab" class="tab-content active">
-                    <div id="headerEditor" class="header-footer-editor" contenteditable="true"></div>
-                </div>
-                
-                <div id="footerTab" class="tab-content">
-                    <div id="footerEditor" class="header-footer-editor" contenteditable="true"></div>
-                </div>
-                
-                <div class="modal-buttons">
-                    <button type="button" class="btn-primary" onclick="saveHeaderFooter()">Enregistrer</button>
-                    <button type="button" class="btn-secondary" onclick="closeHeaderFooterModal()">Annuler</button>
-                </div>
-            </div>
-        </div>
+                INSERT INTO @TableSousSousMenu (id, Nom, href)
+                SELECT DISTINCT id, Nom, href
+                FROM TB_SOUS_SOUS_MENU
+                WHERE id_SousMenu = @idSousMenu AND isActive = 1
+                ORDER BY id
 
-        <!-- MODALE POUR AJOUTER UN CHAMP (existant) -->
-        <!-- ... (conserver le code existant des modales champ) ... -->
+                IF EXISTS (SELECT 1 FROM @TableSousSousMenu)
+                BEGIN
+                    SET @menuLi = @menuLi + '
+                        <ul role="menu" class="SousSousMenuRGAA">'
 
-        <script>
-            // ... (conserver les fonctions existantes) ...
+                    WHILE EXISTS (SELECT * FROM @TableSousSousMenu WHERE ok = 0)
+                    BEGIN
+                        SET @IdTableSousSousMenu = (SELECT MIN(IdTableSousSousMenu)
+                                                   FROM @TableSousSousMenu
+                                                   WHERE ok = 0)
 
-            // Gestion des images
-            function handleImageUpload(input) {
-                if (input.files && input.files[0]) {
-                    const reader = new FileReader();
-                    
-                    reader.onload = function(e) {
-                        insertImageIntoEditor(e.target.result);
-                    };
-                    
-                    reader.readAsDataURL(input.files[0]);
-                }
-            }
+                        SELECT @sousSousMenu = ISNULL(Nom, ''),
+                               @hrefSousSousmenu = ISNULL(href, '')
+                        FROM @TableSousSousMenu
+                        WHERE IdTableSousSousMenu = @IdTableSousSousMenu
 
-            function insertImageIntoEditor(imageData) {
-                const img = document.createElement('img');
-                img.src = imageData;
-                img.style.maxWidth = '100%';
-                img.style.height = 'auto';
-                
-                // Insérer à la position du curseur ou à la fin
-                const selection = window.getSelection();
-                if (selection.rangeCount > 0) {
-                    const range = selection.getRangeAt(0);
-                    range.deleteContents();
-                    range.insertNode(img);
-                    
-                    // Ajouter un saut de ligne après l'image
-                    const br = document.createElement('br');
-                    range.setStartAfter(img);
-                    range.insertNode(br);
-                    
-                    // Positionner le curseur après l'image
-                    range.setStartAfter(br);
-                    range.collapse(true);
-                    selection.removeAllRanges();
-                    selection.addRange(range);
-                } else {
-                    editor.appendChild(img);
-                    editor.appendChild(document.createElement('br'));
-                }
-                
-                editor.focus();
-            }
+                        SET @menuLi = @menuLi + '
+                            <li role="none">
+                                <a role="menuitem" 
+                                   tabindex="-1" 
+                                   href="' + @hrefSousSousmenu + '" 
+                                   class="sousMenuRGAA">
+                                    ' + @sousSousMenu + '
+                                </a>
+                            </li>'
 
-            // Gestion des en-têtes/pieds-de-page
-            function openHeaderFooterModal() {
-                // Charger le contenu actuel
-                document.getElementById('headerEditor').innerHTML = document.getElementById('headerSection').innerHTML;
-                document.getElementById('footerEditor').innerHTML = document.getElementById('footerSection').innerHTML;
-                
-                // Ouvrir la modale
-                document.getElementById('headerFooterModal').style.display = 'block';
-            }
+                        UPDATE @TableSousSousMenu SET ok = 1 
+                        WHERE IdTableSousSousMenu = @IdTableSousSousMenu
+                    END
 
-            function closeHeaderFooterModal() {
-                document.getElementById('headerFooterModal').style.display = 'none';
-            }
+                    SET @menuLi = @menuLi + '
+                        </ul>'
+                END
 
-            function saveHeaderFooter() {
-                // Sauvegarder le contenu
-                document.getElementById('headerSection').innerHTML = document.getElementById('headerEditor').innerHTML;
-                document.getElementById('footerSection').innerHTML = document.getElementById('footerEditor').innerHTML;
-                
-                // Mettre à jour les champs cachés
-                document.getElementById('HiddenHeaderContent').value = encodeHtml(document.getElementById('headerEditor').innerHTML);
-                document.getElementById('HiddenFooterContent').value = encodeHtml(document.getElementById('footerEditor').innerHTML);
-                
-                closeHeaderFooterModal();
-            }
+                SET @menuLi = @menuLi + '
+                    </li>'
 
-            function openTab(tabName) {
-                // Masquer tous les onglets
-                document.querySelectorAll('.tab-content').forEach(tab => {
-                    tab.classList.remove('active');
-                });
-                
-                // Désactiver tous les boutons d'onglet
-                document.querySelectorAll('.tab-button').forEach(button => {
-                    button.classList.remove('active');
-                });
-                
-                // Activer l'onglet sélectionné
-                document.getElementById(tabName).classList.add('active');
-                event.currentTarget.classList.add('active');
-            }
+                UPDATE @TableSousMenu SET ok = 1 
+                WHERE IdTableSousMenu = @IdTableSousMenu
+            END
 
-            // Modifier la fonction de sauvegarde pour inclure header/footer
-            document.getElementById('btnSave').addEventListener('click', function() {
-                document.getElementById('HiddenHtmlContent').value = encodeHtml(editor.innerHTML);
-                document.getElementById('HiddenHeaderContent').value = encodeHtml(document.getElementById('headerSection').innerHTML);
-                document.getElementById('HiddenFooterContent').value = encodeHtml(document.getElementById('footerSection').innerHTML);
-            });
+            SET @menuLi = @menuLi + '
+                </ul>'
+        END
 
-            // ... (rester du code JavaScript existant) ...
-        </script>
+        SET @menuLi = @menuLi + '
+            </li>'
 
-        <style>
-            /* Ajouter ces styles à votre fichier editor.css */
-            .header-footer-section {
-                border: 1px dashed #ccc;
-                padding: 15px;
-                margin: 10px 0;
-                min-height: 50px;
-            }
+        UPDATE @TableMenuPrincipal SET ok = 1 
+        WHERE IdTableMenuPrincipal = @IdTableMenuPrincipal
+    END
+
+    -- Construction du HTML final
+    SET @htmlHeader = '
+<nav class="skip-links" aria-label="Accès rapide">
+    <a href="#main">Contenu principal</a>
+</nav>
+<header class="headerRGAA" role="banner">
+    <div class="header-container">
+        <a href="accueilUser.aspx" class="logoBoxRGAA">
+            <img class="logoRGAA" src="../img/logo.png" alt="Logo de la Banque Postale" />
+            <p class="titleRGAA">Lettres Types</p>
+        </a>
+        <button class="MenuBurgerRGAA" 
+                aria-expanded="false" 
+                aria-controls="sectionNavRGAA" 
+                aria-label="Menu principal">
+            <span class="burger-line"></span>
+            <span class="burger-line"></span>
+            <span class="burger-line"></span>
+        </button>
+        <nav id="sectionNavRGAA" class="sectionNavRGAA" aria-label="Navigation principale">
+            <ul role="menubar" class="main-menu">'
+
+    SET @htmlFooter = '
+            </ul>
+        </nav>
+    </div>
+</header>'
+
+    SET @htmlStyle = '
+<style>
+/* Reset et base */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:focus {
+    outline: 2px solid #005fcc;
+    outline-offset: 2px;
+}
+
+.skip-links {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+}
+
+.skip-links a {
+    position: absolute;
+    left: -10000px;
+    top: 0;
+    background: #fff;
+    color: #000;
+    padding: 8px;
+    z-index: 100;
+}
+
+.skip-links a:focus {
+    left: 0;
+}
+
+/* Header */
+.headerRGAA {
+    background-color: #003DA5;
+    color: white;
+    width: 100%;
+    position: relative;
+    z-index: 100;
+}
+
+.header-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+}
+
+/* Logo */
+.logoBoxRGAA {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    text-decoration: none;
+}
+
+.logoRGAA {
+    height: 40px;
+    width: auto;
+}
+
+.titleRGAA {
+    font-weight: bold;
+    color: white;
+    background: transparent;
+    padding: 0;
+}
+
+/* Menu Burger */
+.MenuBurgerRGAA {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    z-index: 101;
+}
+
+.burger-line {
+    display: block;
+    width: 24px;
+    height: 2px;
+    background: white;
+    margin: 5px 0;
+    transition: transform 0.3s ease;
+}
+
+/* Navigation principale */
+.sectionNavRGAA {
+    display: flex;
+}
+
+.main-menu {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.main-menu > li {
+    position: relative;
+}
+
+/* Styles des liens */
+.OneSectionRGAA {
+    color: white;
+    text-decoration: none;
+    padding: 1rem;
+    display: block;
+    background: transparent;
+    border: none;
+    font-size: inherit;
+    cursor: pointer;
+}
+
+/* Menus déroulants */
+.dropdownRGAA {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: #003DA5;
+    min-width: 200px;
+    display: none;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    z-index: 100;
+}
+
+.SousSousMenuRGAA {
+    position: absolute;
+    left: 100%;
+    top: 0;
+    background: #003DA5;
+    min-width: 200px;
+    display: none;
+}
+
+/* États interactifs */
+.main-menu > li:hover > .dropdownRGAA,
+.main-menu > li:focus-within > .dropdownRGAA,
+.dropdownRGAA li:hover > .SousSousMenuRGAA,
+.dropdownRGAA li:focus-within > .SousSousMenuRGAA {
+    display: block;
+}
+
+.OneSectionRGAA:hover,
+.OneSectionRGAA:focus {
+    background-color: #3263b7;
+}
+
+/* Version mobile */
+@media (max-width: 768px) {
+    .MenuBurgerRGAA {
+        display: block;
+    }
+    
+    .sectionNavRGAA {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100vh;
+        background: #003DA5;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+        z-index: 100;
+    }
+    
+    .sectionNavRGAA[aria-expanded="true"] {
+        transform: translateX(0);
+    }
+    
+    .main-menu {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .dropdownRGAA,
+    .SousSousMenuRGAA {
+        position: static;
+        display: none;
+        width: 100%;
+    }
+    
+    .dropdownRGAA li {
+        padding-left: 2rem;
+    }
+    
+    .SousSousMenuRGAA li {
+        padding-left: 4rem;
+    }
+}
+
+/* Animation burger */
+.MenuBurgerRGAA[aria-expanded="true"] .burger-line:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+}
+
+.MenuBurgerRGAA[aria-expanded="true"] .burger-line:nth-child(2) {
+    opacity: 0;
+}
+
+.MenuBurgerRGAA[aria-expanded="true"] .burger-line:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+}
+</style>'
+
+    SET @htmlScript = '
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Gestion du menu burger
+    const burgerBtn = document.querySelector(".MenuBurgerRGAA");
+    const mainNav = document.querySelector(".sectionNavRGAA");
+    
+    burgerBtn.addEventListener("click", function() {
+        const isExpanded = this.getAttribute("aria-expanded") === "true";
+        this.setAttribute("aria-expanded", !isExpanded);
+        mainNav.setAttribute("aria-expanded", !isExpanded);
+    });
+    
+    // Gestion des menus déroulants
+    const menuButtons = document.querySelectorAll(".OneSectionRGAA[aria-controls]");
+    
+    menuButtons.forEach(button => {
+        button.addEventListener("click", function() {
+            if (window.innerWidth > 768) return;
             
-            .header-footer-section:before {
-                content: attr(id);
-                display: block;
-                font-size: 0.8em;
-                color: #666;
-                margin-bottom: 5px;
-            }
+            const menuId = this.getAttribute("aria-controls");
+            const menu = document.getElementById(menuId);
+            const isExpanded = this.getAttribute("aria-expanded") === "true";
             
-            .header-footer-editor {
-                min-height: 150px;
-                border: 1px solid #ddd;
-                padding: 10px;
-                margin: 10px 0;
-            }
-            
-            .header-footer-tabs {
-                display: flex;
-                border-bottom: 1px solid #ddd;
-                margin-bottom: 15px;
-            }
-            
-            .tab-button {
-                padding: 8px 15px;
-                background: #f1f1f1;
-                border: none;
-                cursor: pointer;
-                margin-right: 5px;
-            }
-            
-            .tab-button.active {
-                background: #007bff;
-                color: white;
-            }
-            
-            .tab-content {
-                display: none;
-            }
-            
-            .tab-content.active {
-                display: block;
-            }
-            
-            /* Style pour les images dans l'éditeur */
-            #editor img, .header-footer-editor img {
-                max-width: 100%;
-                height: auto;
-                display: block;
-                margin: 5px 0;
-            }
-        </style>
-</asp:Content>
+            this.setAttribute("aria-expanded", !isExpanded);
+            menu.style.display = isExpanded ? "none" : "block";
+        });
+    });
+    
+    // Fermeture au clic externe
+    document.addEventListener("click", function(e) {
+        if (!mainNav.contains(e.target) && e.target !== burgerBtn) {
+            burgerBtn.setAttribute("aria-expanded", "false");
+            mainNav.setAttribute("aria-expanded", "false");
+        }
+    });
+    
+    // Gestion du clavier
+    document.addEventListener("keydown", function(e) {
+        if (e.key === "Escape") {
+            burgerBtn.setAttribute("aria-expanded", "false");
+            mainNav.setAttribute("aria-expanded", "false");
+        }
+    });
+});
+</script>'
+
+    -- Résultat final
+    SELECT @htmlHeader + @menuLi + @htmlFooter + @htmlStyle + @htmlScript AS HtmlContent
+END
