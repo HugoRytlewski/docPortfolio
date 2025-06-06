@@ -1,116 +1,59 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <title>Menu Accessible</title>
-  <style>
-    nav {
-      background: #333;
-      color: white;
-      padding: 1em;
-    }
+ALTER FUNCTION [dbo].[CalculCle_Mont_Ref_Ech] (@p_base_calcul NVARCHAR(MAX))
+RETURNS NVARCHAR(2)
+AS
+BEGIN
+    DECLARE @i INT
+    DECLARE @Cle INT
+    DECLARE @Len INT
+    DECLARE @Char NVARCHAR(1)
+    DECLARE @HasNumber BIT
+    DECLARE @Value INT
 
-    ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
+    SET @Cle = 0
+    SET @Len = LEN(@p_base_calcul)
+    SET @HasNumber = 0
 
-    .menu > li {
-      display: inline-block;
-      position: relative;
-    }
+    -- Table de conversion lettres => chiffres
+    DECLARE @equival TABLE (Lettre CHAR(1), Valeur INT)
+    INSERT INTO @equival (Lettre, Valeur)
+    VALUES
+    ('A',1), ('B',2), ('C',3), ('D',4), ('E',5), ('F',6), ('G',7), ('H',8), ('I',9),
+    ('J',1), ('K',2), ('L',3), ('M',4), ('N',5), ('O',6), ('P',7), ('Q',8), ('R',9),
+    ('S',2), ('T',3), ('U',4), ('V',5), ('W',6), ('X',7), ('Y',8), ('Z',9)
 
-    .menu > li > button {
-      background: none;
-      color: white;
-      border: none;
-      font-size: 1rem;
-      padding: 0.5em 1em;
-      cursor: pointer;
-    }
+    SET @i = 1
+    WHILE @i <= @Len
+    BEGIN
+        SET @Char = UPPER(SUBSTRING(@p_base_calcul, @Len - @i + 1, 1))
 
-    .submenu {
-      display: none;
-      position: absolute;
-      background: #444;
-      min-width: 160px;
-      top: 100%;
-      left: 0;
-      z-index: 10;
-    }
+        IF @Char = '.' OR @Char = CHAR(9)
+            RETURN NULL
 
-    .submenu[aria-hidden="false"] {
-      display: block;
-    }
+        -- Vérifie si le caractère est un chiffre
+        IF @Char LIKE '[0-9]'
+        BEGIN
+            SET @Value = CAST(@Char AS INT)
+            SET @Cle = @Cle + (@i * @Value)
+            SET @HasNumber = 1
+        END
+        -- Sinon, regarde s'il est dans la table de conversion
+        ELSE IF EXISTS (SELECT 1 FROM @equival WHERE Lettre = @Char)
+        BEGIN
+            SELECT @Value = Valeur FROM @equival WHERE Lettre = @Char
+            SET @Cle = @Cle + (@i * @Value)
+            SET @HasNumber = 1
+        END
+        -- Si ce n’est ni un chiffre ni une lettre valide, retourne NULL
+        ELSE
+            RETURN NULL
 
-    .submenu li a {
-      display: block;
-      color: white;
-      text-decoration: none;
-      padding: 0.5em 1em;
-    }
+        SET @i = @i + 1
+    END
 
-    .submenu li a:focus,
-    .submenu li a:hover {
-      background: #666;
-    }
-  </style>
-</head>
-<body>
-  <header>
-    <nav role="navigation" aria-label="Menu principal">
-      <ul class="menu">
-        <li>
-          <button aria-haspopup="true" aria-expanded="false" aria-controls="submenu-services" id="menu-services">
-            Services
-          </button>
-          <ul class="submenu" id="submenu-services" role="menu" aria-labelledby="menu-services" aria-hidden="true">
-            <li role="none"><a role="menuitem" href="#">Développement</a></li>
-            <li role="none"><a role="menuitem" href="#">Design</a></li>
-            <li role="none"><a role="menuitem" href="#">SEO</a></li>
-          </ul>
-        </li>
-        <li><a href="#" role="link">À propos</a></li>
-        <li><a href="#" role="link">Contact</a></li>
-      </ul>
-    </nav>
-  </header>
+    IF @HasNumber = 0
+        RETURN NULL
 
-  <script>
-    const buttons = document.querySelectorAll('button[aria-haspopup="true"]');
+    SET @Cle = @Cle % 100
 
-    buttons.forEach(button => {
-      const menuId = button.getAttribute('aria-controls');
-      const submenu = document.getElementById(menuId);
-
-      // Toggle on click or keyboard activation
-      button.addEventListener('click', () => {
-        const expanded = button.getAttribute('aria-expanded') === 'true';
-        button.setAttribute('aria-expanded', String(!expanded));
-        submenu.setAttribute('aria-hidden', String(expanded));
-      });
-
-      button.addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
-          e.preventDefault();
-          button.click();
-          const firstItem = submenu.querySelector('[role="menuitem"]');
-          firstItem?.focus();
-        }
-      });
-    });
-
-    // Close submenus on Escape key
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape') {
-        buttons.forEach(button => {
-          const submenu = document.getElementById(button.getAttribute('aria-controls'));
-          button.setAttribute('aria-expanded', 'false');
-          submenu.setAttribute('aria-hidden', 'true');
-        });
-      }
-    });
-  </script>
-</body>
-</html>
+    RETURN RIGHT('00' + CAST(@Cle AS NVARCHAR(2)), 2)
+END
