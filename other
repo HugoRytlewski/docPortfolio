@@ -1,59 +1,453 @@
-ALTER FUNCTION [dbo].[CalculCle_Mont_Ref_Ech] (@p_base_calcul NVARCHAR(MAX))
-RETURNS NVARCHAR(2)
-AS
-BEGIN
-    DECLARE @i INT
-    DECLARE @Cle INT
-    DECLARE @Len INT
-    DECLARE @Char NVARCHAR(1)
-    DECLARE @HasNumber BIT
-    DECLARE @Value INT
+// Configuration globale
+const config = {
+  predefinedLabels: {
+    'Date': 'Date',
+    'SELECT': 'Multi-option',
+    'CodePostal': 'Code postal',
+    'Ville': 'Ville',
+    'PC': 'Comptable'
+  },
+  fieldTypes: [
+    { value: 'Text', label: 'Champ texte' },
+    { value: 'Nombre', label: 'Nombre' },
+    { value: 'Date', label: 'Date' },
+    { value: 'SELECT', label: 'Liste déroulante multi-option' },
+    { value: 'CodePostal', label: 'Code postal' },
+    { value: 'Ville', label: 'Ville' },
+    { value: 'PC', label: 'Comptable' }
+  ]
+};
 
-    SET @Cle = 0
-    SET @Len = LEN(@p_base_calcul)
-    SET @HasNumber = 0
+// Éléments DOM
+const domElements = {
+  editor: document.getElementById('editor'),
+  fieldPreview: document.getElementById('fieldPreview'),
+  insertFieldModal: document.getElementById('insertFieldModal'),
+  editFieldModal: document.getElementById('editFieldModal'),
+  newFieldType: document.getElementById('newFieldType'),
+  newFieldLabel: document.getElementById('newFieldLabel'),
+  newFieldRequired: document.getElementById('newFieldRequired'),
+  editFieldType: document.getElementById('editFieldType'),
+  editFieldLabel: document.getElementById('editFieldLabel'),
+  editFieldRequired: document.getElementById('editFieldRequired'),
+  hiddenHtmlContent: document.getElementById('HiddenHtmlContent'),
+  btnSave: document.getElementById('btnSave'),
+  btnVisu: document.getElementById('btnVisu'),
+  imageUploader: document.getElementById('imageUploader')
+};
 
-    -- Table de conversion lettres => chiffres
-    DECLARE @equival TABLE (Lettre CHAR(1), Valeur INT)
-    INSERT INTO @equival (Lettre, Valeur)
-    VALUES
-    ('A',1), ('B',2), ('C',3), ('D',4), ('E',5), ('F',6), ('G',7), ('H',8), ('I',9),
-    ('J',1), ('K',2), ('L',3), ('M',4), ('N',5), ('O',6), ('P',7), ('Q',8), ('R',9),
-    ('S',2), ('T',3), ('U',4), ('V',5), ('W',6), ('X',7), ('Y',8), ('Z',9)
+// État de l'application
+const appState = {
+  currentField: null,
+  isInsertingField: false,
+  pendingFieldData: null,
+  imageData: ""
+};
 
-    SET @i = 1
-    WHILE @i <= @Len
-    BEGIN
-        SET @Char = UPPER(SUBSTRING(@p_base_calcul, @Len - @i + 1, 1))
+// Initialisation
+function init() {
+  setupFieldTypeDropdowns();
+  setupEventListeners();
+  attachFieldEvents();
+}
 
-        IF @Char = '.' OR @Char = CHAR(9)
-            RETURN NULL
+function setupFieldTypeDropdowns() {
+  // Remplir les dropdowns de type de champ
+  config.fieldTypes.forEach(type => {
+    const option = document.createElement('option');
+    option.value = type.value;
+    option.textContent = type.label;
+    
+    domElements.newFieldType.appendChild(option.cloneNode(true));
+    domElements.editFieldType.appendChild(option);
+  });
+}
 
-        -- Vérifie si le caractère est un chiffre
-        IF @Char LIKE '[0-9]'
-        BEGIN
-            SET @Value = CAST(@Char AS INT)
-            SET @Cle = @Cle + (@i * @Value)
-            SET @HasNumber = 1
-        END
-        -- Sinon, regarde s'il est dans la table de conversion
-        ELSE IF EXISTS (SELECT 1 FROM @equival WHERE Lettre = @Char)
-        BEGIN
-            SELECT @Value = Valeur FROM @equival WHERE Lettre = @Char
-            SET @Cle = @Cle + (@i * @Value)
-            SET @HasNumber = 1
-        END
-        -- Si ce n’est ni un chiffre ni une lettre valide, retourne NULL
-        ELSE
-            RETURN NULL
+function setupEventListeners() {
+  // Événements de l'éditeur
+  domElements.editor.addEventListener('keydown', handleTabIndentation);
+  domElements.editor.addEventListener('selectstart', handleSelection);
+  
+  // Boutons de la toolbar
+  document.querySelectorAll('.toolbar button').forEach(btn => {
+    if (btn.onclick) return;
+    const cmd = btn.getAttribute('data-command');
+    if (cmd) btn.onclick = () => execCmd(cmd);
+  });
+  
+  // Sauvegarde
+  domElements.btnSave.addEventListener('click', saveContent);
+  domElements.btnVisu.addEventListener('click', saveContent);
+  
+  // Upload d'image
+  domElements.imageUploader.addEventListener('change', handleImageUpload);
+  
+  // Modales
+  domElements.insertFieldModal.addEventListener('click', modalClickHandler);
+  domElements.editFieldModal.addEventListener('click', modalClickHandler);
+  document.addEventListener('keydown', handleEscapeKey);
+}
 
-        SET @i = @i + 1
-    END
+// Fonctions principales
+function execCmd(command, value = null) {
+  document.execCommand(command, false, value);
+  domElements.editor.focus();
+}
 
-    IF @HasNumber = 0
-        RETURN NULL
+function saveContent() {
+  const content = domElements.editor.innerHTML;
+  domElements.hiddenHtmlContent.value = encodeHtml(content);
+}
 
-    SET @Cle = @Cle % 100
+function encodeHtml(str) {
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  };
+  return str.replace(/[&<>"']/g, m => map[m]);
+}
 
-    RETURN RIGHT('00' + CAST(@Cle AS NVARCHAR(2)), 2)
-END
+// Gestion des champs
+function openInsertFieldModal() {
+  resetModal('new');
+  domElements.insertFieldModal.style.display = 'block';
+  focusModalField('new');
+}
+
+function startFieldPlacement() {
+  const type = domElements.newFieldType.value;
+  const label = domElements.newFieldLabel.value.trim();
+  const required = domElements.newFieldRequired.checked;
+
+  if (!label) {
+    alert('Veuillez saisir un libellé pour le champ.');
+    return;
+  }
+
+  appState.pendingFieldData = { type, label, required };
+  closeInsertFieldModal();
+  activateFieldPlacementMode();
+}
+
+function activateFieldPlacementMode() {
+  appState.isInsertingField = true;
+  domElements.editor.style.cursor = 'crosshair';
+  
+  const { type, label, required } = appState.pendingFieldData;
+  const displayText = `${label}${required ? ' *' : ''}`;
+  
+  domElements.fieldPreview.textContent = displayText;
+  domElements.fieldPreview.className = `field-preview field-${type.toLowerCase()}`;
+  domElements.fieldPreview.style.display = 'block';
+
+  document.addEventListener('mousemove', handleMouseMove);
+  domElements.editor.addEventListener('click', handleFieldPlacement);
+  document.addEventListener('keydown', handleEscapeKey);
+
+  showPlacementHelp();
+}
+
+function handleFieldPlacement(e) {
+  if (!appState.isInsertingField) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  if (!domElements.editor.contains(e.target) && e.target !== domElements.editor) {
+    return;
+  }
+
+  insertFieldAtPosition(e);
+  stopFieldPlacement();
+}
+
+function insertFieldAtPosition(e) {
+  const { type, label, required } = appState.pendingFieldData;
+  
+  const fieldSpan = document.createElement('span');
+  fieldSpan.className = `inserted-field field-${type.toLowerCase()}`;
+  fieldSpan.dataset.type = type;
+  fieldSpan.dataset.label = label;
+  fieldSpan.dataset.required = required;
+  fieldSpan.contentEditable = 'false';
+  fieldSpan.title = 'Cliquez pour modifier ce champ';
+  fieldSpan.textContent = `<${label}${required ? ' *' : ''}>`;
+
+  fieldSpan.addEventListener('click', function(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    editField(fieldSpan);
+  });
+
+  const range = document.caretRangeFromPoint(e.clientX, e.clientY);
+  if (range) {
+    range.insertNode(fieldSpan);
+    const spaceNode = document.createTextNode(' ');
+    range.setStartAfter(fieldSpan);
+    range.insertNode(spaceNode);
+    range.setStartAfter(spaceNode);
+    range.collapse(true);
+    
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+}
+
+function editField(fieldElement) {
+  appState.currentField = fieldElement;
+  
+  domElements.editFieldType.value = fieldElement.dataset.type;
+  domElements.editFieldLabel.value = fieldElement.dataset.label;
+  domElements.editFieldRequired.checked = fieldElement.dataset.required === 'true';
+  
+  updateFieldLabel('edit');
+  domElements.editFieldModal.style.display = 'block';
+}
+
+function applyFieldChanges() {
+  if (!appState.currentField) return;
+
+  const type = domElements.editFieldType.value;
+  const label = domElements.editFieldLabel.value.trim();
+  const required = domElements.editFieldRequired.checked;
+
+  if (!label) {
+    alert('Veuillez saisir un libellé pour le champ.');
+    return;
+  }
+
+  appState.currentField.className = `inserted-field field-${type.toLowerCase()}`;
+  appState.currentField.dataset.type = type;
+  appState.currentField.dataset.label = label;
+  appState.currentField.dataset.required = required;
+  appState.currentField.textContent = `<${label}${required ? ' *' : ''}>`;
+
+  closeEditFieldModal();
+  domElements.editor.focus();
+}
+
+// Gestion des images
+function handleImageUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    appState.imageData = e.target.result;
+    activateImagePlacementMode();
+  };
+  reader.readAsDataURL(file);
+}
+
+function activateImagePlacementMode() {
+  appState.isInsertingField = true;
+  domElements.editor.style.cursor = 'crosshair';
+  
+  domElements.fieldPreview.textContent = 'Image';
+  domElements.fieldPreview.className = 'field-preview';
+  domElements.fieldPreview.style.display = 'block';
+
+  document.addEventListener('mousemove', handleMouseMove);
+  domElements.editor.addEventListener('click', insertImageAtPosition);
+  document.addEventListener('keydown', handleEscapeKey);
+
+  showPlacementHelp();
+}
+
+function insertImageAtPosition(e) {
+  e.preventDefault();
+  e.stopPropagation();
+
+  if (!domElements.editor.contains(e.target) && e.target !== domElements.editor) {
+    return;
+  }
+
+  const img = document.createElement('img');
+  img.src = appState.imageData;
+  img.style.maxWidth = '100%';
+  img.style.height = 'auto';
+
+  const range = document.caretRangeFromPoint(e.clientX, e.clientY);
+  if (range) {
+    range.insertNode(img);
+    const spaceNode = document.createTextNode(' ');
+    range.setStartAfter(img);
+    range.insertNode(spaceNode);
+    range.setStartAfter(spaceNode);
+    range.collapse(true);
+    
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  stopFieldPlacement();
+}
+
+// Fonctions utilitaires
+function updateFieldLabel(modalType) {
+  const typeSelect = document.getElementById(`${modalType}FieldType`);
+  const labelInput = document.getElementById(`${modalType}FieldLabel`);
+  const selectedType = typeSelect.value;
+
+  if (config.predefinedLabels[selectedType]) {
+    labelInput.value = config.predefinedLabels[selectedType];
+    labelInput.disabled = true;
+    labelInput.classList.add('disabled-field');
+  } else {
+    labelInput.disabled = false;
+    labelInput.classList.remove('disabled-field');
+    if (!labelInput.value || Object.values(config.predefinedLabels).includes(labelInput.value)) {
+      labelInput.value = '';
+    }
+  }
+}
+
+function handleTabIndentation(e) {
+  if (e.key !== 'Tab') return;
+  e.preventDefault();
+
+  const selection = window.getSelection();
+  if (selection.rangeCount === 0) return;
+
+  const range = selection.getRangeAt(0);
+  e.shiftKey ? removeIndentation(range) : addIndentation(range);
+}
+
+function addIndentation(range) {
+  const indentSpan = document.createElement('span');
+  indentSpan.innerHTML = '&nbsp;&nbsp;&nbsp;&nbsp;';
+  indentSpan.className = 'tab-indent';
+
+  range.deleteContents();
+  range.insertNode(indentSpan);
+  range.setStartAfter(indentSpan);
+  range.collapse(true);
+  
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+function removeIndentation(range) {
+  const node = range.startContainer;
+  const offset = range.startOffset;
+
+  if (node.nodeType === Node.TEXT_NODE) {
+    const text = node.textContent;
+    const beforeCursor = text.substring(0, offset);
+    const match = beforeCursor.match(/[\s\u00A0]{1,4}$/);
+    
+    if (match) {
+      node.textContent = text.substring(0, offset - match[0].length) + text.substring(offset);
+      range.setStart(node, offset - match[0].length);
+      range.collapse(true);
+      
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+  } else if (range.startOffset > 0) {
+    const prevNode = node.childNodes[range.startOffset - 1];
+    if (prevNode?.className === 'tab-indent') {
+      prevNode.remove();
+    }
+  }
+}
+
+function attachFieldEvents() {
+  const fields = domElements.editor.querySelectorAll('.inserted-field');
+  fields.forEach(field => {
+    field.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      editField(field);
+    });
+  });
+}
+
+function stopFieldPlacement() {
+  appState.isInsertingField = false;
+  domElements.editor.style.cursor = 'text';
+  domElements.fieldPreview.style.display = 'none';
+
+  document.removeEventListener('mousemove', handleMouseMove);
+  domElements.editor.removeEventListener('click', handleFieldPlacement);
+  document.removeEventListener('keydown', handleEscapeKey);
+
+  hidePlacementHelp();
+  appState.pendingFieldData = null;
+  domElements.editor.focus();
+}
+
+function showPlacementHelp() {
+  const helpDiv = document.createElement('div');
+  helpDiv.id = 'placementHelp';
+  helpDiv.className = 'placement-help';
+  helpDiv.textContent = 'Cliquez à l\'endroit où vous souhaitez insérer le champ (Échap pour annuler)';
+  document.body.appendChild(helpDiv);
+}
+
+function hidePlacementHelp() {
+  const helpDiv = document.getElementById('placementHelp');
+  helpDiv?.remove();
+}
+
+function handleMouseMove(e) {
+  if (!appState.isInsertingField) return;
+  domElements.fieldPreview.style.left = `${e.pageX + 15}px`;
+  domElements.fieldPreview.style.top = `${e.pageY - 10}px`;
+}
+
+function handleEscapeKey(e) {
+  if (e.key !== 'Escape') return;
+  
+  if (appState.isInsertingField) {
+    stopFieldPlacement();
+  } else {
+    closeInsertFieldModal();
+    closeEditFieldModal();
+  }
+}
+
+function modalClickHandler(e) {
+  if (e.target === this) {
+    this.style.display = 'none';
+  }
+}
+
+function handleSelection(e) {
+  if (e.target.classList.contains('inserted-field')) {
+    e.preventDefault();
+  }
+}
+
+function resetModal(modalType) {
+  document.getElementById(`${modalType}FieldType`).value = 'Text';
+  document.getElementById(`${modalType}FieldLabel`).value = '';
+  document.getElementById(`${modalType}FieldRequired`).checked = false;
+  updateFieldLabel(modalType);
+}
+
+function focusModalField(modalType) {
+  const labelInput = document.getElementById(`${modalType}FieldLabel`);
+  labelInput.disabled ? 
+    document.getElementById(`${modalType}FieldRequired`).focus() : 
+    labelInput.focus();
+}
+
+function closeInsertFieldModal() {
+  domElements.insertFieldModal.style.display = 'none';
+}
+
+function closeEditFieldModal() {
+  domElements.editFieldModal.style.display = 'none';
+  appState.currentField = null;
+}
+
+// Initialisation
+document.addEventListener('DOMContentLoaded', init);
