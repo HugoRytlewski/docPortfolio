@@ -1,3 +1,4 @@
-[].forEach.call(document.images, img => {
-  img.src = img.src.replace(/^https?:\/\//, '');
+const prefix = "mon_prefix/";  // ← Change ce préfixe
+document.querySelectorAll('img[src^="https://localhost/"], img[src^="http://localhost/"]').forEach(img => {
+  img.src = prefix + img.src.replace(/^https?:\/\/localhost\//, '');
 });
