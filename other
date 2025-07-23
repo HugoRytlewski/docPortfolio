@@ -1,453 +1,315 @@
-// Configuration globale
-const config = {
-  predefinedLabels: {
-    'Date': 'Date',
-    'SELECT': 'Multi-option',
-    'CodePostal': 'Code postal',
-    'Ville': 'Ville',
-    'PC': 'Comptable'
-  },
-  fieldTypes: [
-    { value: 'Text', label: 'Champ texte' },
-    { value: 'Nombre', label: 'Nombre' },
-    { value: 'Date', label: 'Date' },
-    { value: 'SELECT', label: 'Liste déroulante multi-option' },
-    { value: 'CodePostal', label: 'Code postal' },
-    { value: 'Ville', label: 'Ville' },
-    { value: 'PC', label: 'Comptable' }
-  ]
-};
+<%@ Page Title="Éditeur de Lettres Types" Language="C#" MasterPageFile="~/composant/nav.Master" AutoEventWireup="true" CodeBehind="editor.aspx.cs" Inherits="LettresTypes.pages.editor" %>
+<asp:Content ID="Content1" ContentPlaceHolderID="head" runat="server">
+    <link href="../styles/editor.css" rel="stylesheet" />
+</asp:Content>
+<asp:Content ID="Content2" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
+    <div class="divh1">
+        <h1 class="title">Lettres Types - Sélection d'une lettre</h1>
+    </div>
 
-// Éléments DOM
-const domElements = {
-  editor: document.getElementById('editor'),
-  fieldPreview: document.getElementById('fieldPreview'),
-  insertFieldModal: document.getElementById('insertFieldModal'),
-  editFieldModal: document.getElementById('editFieldModal'),
-  newFieldType: document.getElementById('newFieldType'),
-  newFieldLabel: document.getElementById('newFieldLabel'),
-  newFieldRequired: document.getElementById('newFieldRequired'),
-  editFieldType: document.getElementById('editFieldType'),
-  editFieldLabel: document.getElementById('editFieldLabel'),
-  editFieldRequired: document.getElementById('editFieldRequired'),
-  hiddenHtmlContent: document.getElementById('HiddenHtmlContent'),
-  btnSave: document.getElementById('btnSave'),
-  btnVisu: document.getElementById('btnVisu'),
-  imageUploader: document.getElementById('imageUploader')
-};
+    <div class="page">
+        <div class="editor-container">
+            <a class="backRep" href="detailLettres.aspx">Retour</a>
 
-// État de l'application
-const appState = {
-  currentField: null,
-  isInsertingField: false,
-  pendingFieldData: null,
-  imageData: ""
-};
+            <div class="toolbar">
+                <button type="button" onclick="execCmd('bold')" title="Gras"><b>G</b></button>
+                <button type="button" onclick="execCmd('italic')" title="Italique"><i>I</i></button>
+                <button type="button" onclick="execCmd('underline')" title="Souligné"><u>S</u></button>
+                <button type="button" onclick="execCmd('insertUnorderedList')" title="Liste à puces">• Liste</button>
+                <button type="button" onclick="execCmd('insertOrderedList')" title="Liste numérotée">1. Liste</button>
+                <button type="button" onclick="execCmd('justifyLeft')" title="Aligné à gauche">≡ Gauche</button>
+                <button type="button" onclick="execCmd('justifyCenter')" title="Centré">≡ Centre</button>
+                <button type="button" onclick="execCmd('justifyRight')" title="Aligné à droite">≡ Droite</button>
+                <button type="button" onclick="openInsertFieldModal()" title="Ajouter un champ">+ Champ</button>
+                <button type="button" onclick="document.getElementById('imageUploader').click()">🖼️ Image</button>
+                <button type="button" onclick="insertHeader()">📄 En-tête</button>
+                <button type="button" onclick="insertFooter()">📄 Pied</button>
+            </div>
 
-// Initialisation
-function init() {
-  setupFieldTypeDropdowns();
-  setupEventListeners();
-  attachFieldEvents();
-}
+            <div id="editor" contenteditable="true">
+                <asp:Literal ID="LiteralContent" runat="server"></asp:Literal>
+            </div>
 
-function setupFieldTypeDropdowns() {
-  // Remplir les dropdowns de type de champ
-  config.fieldTypes.forEach(type => {
-    const option = document.createElement('option');
-    option.value = type.value;
-    option.textContent = type.label;
-    
-    domElements.newFieldType.appendChild(option.cloneNode(true));
-    domElements.editFieldType.appendChild(option);
-  });
-}
+            <div class="save-section">
+                <asp:HiddenField ClientIDMode="Static" ID="HiddenHtmlContent" runat="server" />
+                <asp:Button ID="btnSave" ClientIDMode="Static" runat="server" Text="Enregistrer" OnClick="btnSave_Click" CssClass="btn-save" />
+                <asp:Button ID="btnVisu" ClientIDMode="Static" runat="server" Text="Visualiser" OnClick="btnVisualiser" CssClass="btn-preview" />
+            </div>
+        </div>
 
-function setupEventListeners() {
-  // Événements de l'éditeur
-  domElements.editor.addEventListener('keydown', handleTabIndentation);
-  domElements.editor.addEventListener('selectstart', handleSelection);
-  
-  // Boutons de la toolbar
-  document.querySelectorAll('.toolbar button').forEach(btn => {
-    if (btn.onclick) return;
-    const cmd = btn.getAttribute('data-command');
-    if (cmd) btn.onclick = () => execCmd(cmd);
-  });
-  
-  // Sauvegarde
-  domElements.btnSave.addEventListener('click', saveContent);
-  domElements.btnVisu.addEventListener('click', saveContent);
-  
-  // Upload d'image
-  domElements.imageUploader.addEventListener('change', handleImageUpload);
-  
-  // Modales
-  domElements.insertFieldModal.addEventListener('click', modalClickHandler);
-  domElements.editFieldModal.addEventListener('click', modalClickHandler);
-  document.addEventListener('keydown', handleEscapeKey);
-}
+        <input type="file" id="imageUploader" accept="image/*" style="display:none" onchange="handleImageUpload(this)" />
 
-// Fonctions principales
-function execCmd(command, value = null) {
-  document.execCommand(command, false, value);
-  domElements.editor.focus();
-}
+        <!-- Modale Ajout Champ -->
+        <div class="modal" id="insertFieldModal">
+            <div class="modal-content">
+                <span class="close-modal" onclick="closeInsertFieldModal()">&times;</span>
+                <h4>Ajouter un nouveau champ</h4>
+                <div class="form-group">
+                    <label>Type de champ :</label>
+                    <select id="newFieldType" class="form-control" onchange="updateFieldLabel('new')">
+                        <option value="Text">Texte</option>
+                        <option value="Nombre">Nombre</option>
+                        <option value="Date">Date</option>
+                        <option value="SELECT">Liste déroulante</option>
+                        <option value="CodePostal">Code postal</option>
+                        <option value="Ville">Ville</option>
+                        <option value="PC">Comptable</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Libellé :</label>
+                    <input type="text" id="newFieldLabel" class="form-control" placeholder="Nom du champ..." />
+                </div>
+                <div class="form-check">
+                    <input type="checkbox" id="newFieldRequired" class="form-check-input" />
+                    <label class="form-check-label">Obligatoire</label>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" onclick="insertNewField()">Insérer</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeInsertFieldModal()">Annuler</button>
+                </div>
+            </div>
+        </div>
 
-function saveContent() {
-  const content = domElements.editor.innerHTML;
-  domElements.hiddenHtmlContent.value = encodeHtml(content);
-}
+        <!-- Modale Édition Champ -->
+        <div class="modal" id="editFieldModal">
+            <div class="modal-content">
+                <span class="close-modal" onclick="closeEditFieldModal()">&times;</span>
+                <h4>Modifier le champ</h4>
+                <div class="form-group">
+                    <label>Type de champ :</label>
+                    <select id="editFieldType" class="form-control" onchange="updateFieldLabel('edit')">
+                        <option value="Text">Texte</option>
+                        <option value="Nombre">Nombre</option>
+                        <option value="Date">Date</option>
+                        <option value="SELECT">Liste déroulante</option>
+                        <option value="CodePostal">Code postal</option>
+                        <option value="Ville">Ville</option>
+                        <option value="PC">Comptable</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Libellé :</label>
+                    <input type="text" id="editFieldLabel" class="form-control" />
+                </div>
+                <div class="form-check">
+                    <input type="checkbox" id="editFieldRequired" class="form-check-input" />
+                    <label class="form-check-label">Obligatoire</label>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" onclick="applyFieldChanges()">Appliquer</button>
+                    <button type="button" class="btn btn-danger" onclick="deleteField()">Supprimer</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeEditFieldModal()">Annuler</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-function encodeHtml(str) {
-  const map = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  };
-  return str.replace(/[&<>"']/g, m => map[m]);
-}
+    <div id="fieldPreview" class="field-preview">[Champ]</div>
 
-// Gestion des champs
-function openInsertFieldModal() {
-  resetModal('new');
-  domElements.insertFieldModal.style.display = 'block';
-  focusModalField('new');
-}
+    <script>
+        // Variables globales
+        let editor, fieldPreview, currentField, isInsertingField = false;
+        let pendingFieldData = null;
+        let imageData = "";
 
-function startFieldPlacement() {
-  const type = domElements.newFieldType.value;
-  const label = domElements.newFieldLabel.value.trim();
-  const required = domElements.newFieldRequired.checked;
+        // Initialisation de l'éditeur
+        function initEditor() {
+            editor = document.getElementById('editor');
+            fieldPreview = document.getElementById('fieldPreview');
+            
+            // Événements
+            editor.addEventListener('keydown', handleTabIndentation);
+            editor.addEventListener('selectstart', handleSelectStart);
+            
+            document.getElementById('btnSave').addEventListener('click', saveContent);
+            document.getElementById('btnVisu').addEventListener('click', saveContent);
+            
+            // Initialiser les champs existants
+            convertTagsToFields();
+            attachFieldEvents();
+        }
 
-  if (!label) {
-    alert('Veuillez saisir un libellé pour le champ.');
-    return;
-  }
+        // Sauvegarder le contenu
+        function saveContent() {
+            document.getElementById('HiddenHtmlContent').value = encodeHtml(editor.innerHTML);
+        }
 
-  appState.pendingFieldData = { type, label, required };
-  closeInsertFieldModal();
-  activateFieldPlacementMode();
-}
+        // Encoder le HTML
+        function encodeHtml(str) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            };
+            return str.replace(/[&<>"']/g, m => map[m]);
+        }
 
-function activateFieldPlacementMode() {
-  appState.isInsertingField = true;
-  domElements.editor.style.cursor = 'crosshair';
-  
-  const { type, label, required } = appState.pendingFieldData;
-  const displayText = `${label}${required ? ' *' : ''}`;
-  
-  domElements.fieldPreview.textContent = displayText;
-  domElements.fieldPreview.className = `field-preview field-${type.toLowerCase()}`;
-  domElements.fieldPreview.style.display = 'block';
+        // Commandes d'édition
+        function execCmd(command) {
+            document.execCommand(command, false, null);
+            editor.focus();
+        }
 
-  document.addEventListener('mousemove', handleMouseMove);
-  domElements.editor.addEventListener('click', handleFieldPlacement);
-  document.addEventListener('keydown', handleEscapeKey);
+        // Gestion des images
+        function handleImageUpload(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    imageData = e.target.result;
+                    startImagePlacement();
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
 
-  showPlacementHelp();
-}
+        function startImagePlacement() {
+            isInsertingField = true;
+            editor.style.cursor = 'crosshair';
+            
+            fieldPreview.textContent = 'Image';
+            fieldPreview.className = 'field-preview field-image';
+            fieldPreview.style.display = 'block';
+            
+            document.addEventListener('mousemove', handleMouseMove);
+            editor.addEventListener('click', insertImageIntoEditor);
+            document.addEventListener('keydown', handleEscapeKey);
+            
+            showPlacementHelp('Cliquez pour insérer l\'image (Échap pour annuler)');
+        }
 
-function handleFieldPlacement(e) {
-  if (!appState.isInsertingField) return;
+        function insertImageIntoEditor(e) {
+            if (!isInsertingField) return;
 
-  e.preventDefault();
-  e.stopPropagation();
+            e.preventDefault();
+            e.stopPropagation();
 
-  if (!domElements.editor.contains(e.target) && e.target !== domElements.editor) {
-    return;
-  }
+            if (!editor.contains(e.target) && e.target !== editor) return;
 
-  insertFieldAtPosition(e);
-  stopFieldPlacement();
-}
+            const range = document.caretRangeFromPoint(e.clientX, e.clientY);
+            if (range) {
+                const img = document.createElement('img');
+                img.src = imageData;
+                img.style.maxWidth = '100%';
+                img.style.height = 'auto';
+                img.className = 'editor-image';
 
-function insertFieldAtPosition(e) {
-  const { type, label, required } = appState.pendingFieldData;
-  
-  const fieldSpan = document.createElement('span');
-  fieldSpan.className = `inserted-field field-${type.toLowerCase()}`;
-  fieldSpan.dataset.type = type;
-  fieldSpan.dataset.label = label;
-  fieldSpan.dataset.required = required;
-  fieldSpan.contentEditable = 'false';
-  fieldSpan.title = 'Cliquez pour modifier ce champ';
-  fieldSpan.textContent = `<${label}${required ? ' *' : ''}>`;
+                range.insertNode(img);
+                range.insertNode(document.createTextNode(' '));
+                range.collapse(true);
+                
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+            }
 
-  fieldSpan.addEventListener('click', function(event) {
-    event.preventDefault();
-    event.stopPropagation();
-    editField(fieldSpan);
-  });
+            stopFieldPlacement();
+        }
 
-  const range = document.caretRangeFromPoint(e.clientX, e.clientY);
-  if (range) {
-    range.insertNode(fieldSpan);
-    const spaceNode = document.createTextNode(' ');
-    range.setStartAfter(fieldSpan);
-    range.insertNode(spaceNode);
-    range.setStartAfter(spaceNode);
-    range.collapse(true);
-    
-    const selection = window.getSelection();
-    selection.removeAllRanges();
-    selection.addRange(range);
-  }
-}
+        // Gestion des champs
+        function updateFieldLabel(modalType) {
+            const typeSelect = document.getElementById(`${modalType}FieldType`);
+            const labelInput = document.getElementById(`${modalType}FieldLabel`);
+            const selectedType = typeSelect.value;
 
-function editField(fieldElement) {
-  appState.currentField = fieldElement;
-  
-  domElements.editFieldType.value = fieldElement.dataset.type;
-  domElements.editFieldLabel.value = fieldElement.dataset.label;
-  domElements.editFieldRequired.checked = fieldElement.dataset.required === 'true';
-  
-  updateFieldLabel('edit');
-  domElements.editFieldModal.style.display = 'block';
-}
+            const predefinedLabels = {
+                'Date': 'Date',
+                'SELECT': 'Choix',
+                'CodePostal': 'Code postal',
+                'Ville': 'Ville',
+                'PC': 'Comptable'
+            };
 
-function applyFieldChanges() {
-  if (!appState.currentField) return;
+            if (predefinedLabels[selectedType]) {
+                labelInput.value = predefinedLabels[selectedType];
+                labelInput.disabled = true;
+                labelInput.classList.add('disabled-field');
+            } else {
+                labelInput.disabled = false;
+                labelInput.classList.remove('disabled-field');
+                if (Object.values(predefinedLabels).includes(labelInput.value)) {
+                    labelInput.value = '';
+                }
+            }
+        }
 
-  const type = domElements.editFieldType.value;
-  const label = domElements.editFieldLabel.value.trim();
-  const required = domElements.editFieldRequired.checked;
+        function openInsertFieldModal() {
+            document.getElementById('newFieldType').value = 'Text';
+            document.getElementById('newFieldLabel').value = '';
+            document.getElementById('newFieldRequired').checked = false;
+            updateFieldLabel('new');
+            
+            document.getElementById('insertFieldModal').style.display = 'block';
+            document.getElementById('newFieldLabel').focus();
+        }
 
-  if (!label) {
-    alert('Veuillez saisir un libellé pour le champ.');
-    return;
-  }
+        function startFieldPlacement() {
+            const type = document.getElementById('newFieldType').value;
+            let label = document.getElementById('newFieldLabel').value.trim();
+            const required = document.getElementById('newFieldRequired').checked;
 
-  appState.currentField.className = `inserted-field field-${type.toLowerCase()}`;
-  appState.currentField.dataset.type = type;
-  appState.currentField.dataset.label = label;
-  appState.currentField.dataset.required = required;
-  appState.currentField.textContent = `<${label}${required ? ' *' : ''}>`;
+            if (!label) {
+                alert('Veuillez saisir un libellé pour le champ.');
+                return;
+            }
 
-  closeEditFieldModal();
-  domElements.editor.focus();
-}
+            pendingFieldData = { type, label, required };
+            closeInsertFieldModal();
 
-// Gestion des images
-function handleImageUpload(event) {
-  const file = event.target.files[0];
-  if (!file) return;
+            isInsertingField = true;
+            editor.style.cursor = 'crosshair';
 
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    appState.imageData = e.target.result;
-    activateImagePlacementMode();
-  };
-  reader.readAsDataURL(file);
-}
+            fieldPreview.textContent = `${label}${required ? ' *' : ''}`;
+            fieldPreview.className = `field-preview field-${type.toLowerCase()}`;
+            fieldPreview.style.display = 'block';
 
-function activateImagePlacementMode() {
-  appState.isInsertingField = true;
-  domElements.editor.style.cursor = 'crosshair';
-  
-  domElements.fieldPreview.textContent = 'Image';
-  domElements.fieldPreview.className = 'field-preview';
-  domElements.fieldPreview.style.display = 'block';
+            document.addEventListener('mousemove', handleMouseMove);
+            editor.addEventListener('click', handleFieldPlacement);
+            document.addEventListener('keydown', handleEscapeKey);
 
-  document.addEventListener('mousemove', handleMouseMove);
-  domElements.editor.addEventListener('click', insertImageAtPosition);
-  document.addEventListener('keydown', handleEscapeKey);
+            showPlacementHelp('Cliquez pour insérer le champ (Échap pour annuler)');
+        }
 
-  showPlacementHelp();
-}
+        // Fonctions utilitaires
+        function handleMouseMove(e) {
+            if (!isInsertingField) return;
+            fieldPreview.style.left = `${e.pageX + 15}px`;
+            fieldPreview.style.top = `${e.pageY - 10}px`;
+        }
 
-function insertImageAtPosition(e) {
-  e.preventDefault();
-  e.stopPropagation();
+        function showPlacementHelp(message) {
+            let helpDiv = document.getElementById('placementHelp');
+            if (!helpDiv) {
+                helpDiv = document.createElement('div');
+                helpDiv.id = 'placementHelp';
+                document.body.appendChild(helpDiv);
+            }
+            helpDiv.textContent = message;
+            helpDiv.style.display = 'block';
+        }
 
-  if (!domElements.editor.contains(e.target) && e.target !== domElements.editor) {
-    return;
-  }
+        function hidePlacementHelp() {
+            const helpDiv = document.getElementById('placementHelp');
+            if (helpDiv) helpDiv.style.display = 'none';
+        }
 
-  const img = document.createElement('img');
-  img.src = appState.imageData;
-  img.style.maxWidth = '100%';
-  img.style.height = 'auto';
+        function stopFieldPlacement() {
+            isInsertingField = false;
+            editor.style.cursor = '';
+            fieldPreview.style.display = 'none';
+            
+            document.removeEventListener('mousemove', handleMouseMove);
+            editor.removeEventListener('click', handleFieldPlacement);
+            document.removeEventListener('keydown', handleEscapeKey);
+            
+            hidePlacementHelp();
+            pendingFieldData = null;
+            editor.focus();
+        }
 
-  const range = document.caretRangeFromPoint(e.clientX, e.clientY);
-  if (range) {
-    range.insertNode(img);
-    const spaceNode = document.createTextNode(' ');
-    range.setStartAfter(img);
-    range.insertNode(spaceNode);
-    range.setStartAfter(spaceNode);
-    range.collapse(true);
-    
-    const selection = window.getSelection();
-    selection.removeAllRanges();
-    selection.addRange(range);
-  }
-
-  stopFieldPlacement();
-}
-
-// Fonctions utilitaires
-function updateFieldLabel(modalType) {
-  const typeSelect = document.getElementById(`${modalType}FieldType`);
-  const labelInput = document.getElementById(`${modalType}FieldLabel`);
-  const selectedType = typeSelect.value;
-
-  if (config.predefinedLabels[selectedType]) {
-    labelInput.value = config.predefinedLabels[selectedType];
-    labelInput.disabled = true;
-    labelInput.classList.add('disabled-field');
-  } else {
-    labelInput.disabled = false;
-    labelInput.classList.remove('disabled-field');
-    if (!labelInput.value || Object.values(config.predefinedLabels).includes(labelInput.value)) {
-      labelInput.value = '';
-    }
-  }
-}
-
-function handleTabIndentation(e) {
-  if (e.key !== 'Tab') return;
-  e.preventDefault();
-
-  const selection = window.getSelection();
-  if (selection.rangeCount === 0) return;
-
-  const range = selection.getRangeAt(0);
-  e.shiftKey ? removeIndentation(range) : addIndentation(range);
-}
-
-function addIndentation(range) {
-  const indentSpan = document.createElement('span');
-  indentSpan.innerHTML = '&nbsp;&nbsp;&nbsp;&nbsp;';
-  indentSpan.className = 'tab-indent';
-
-  range.deleteContents();
-  range.insertNode(indentSpan);
-  range.setStartAfter(indentSpan);
-  range.collapse(true);
-  
-  const selection = window.getSelection();
-  selection.removeAllRanges();
-  selection.addRange(range);
-}
-
-function removeIndentation(range) {
-  const node = range.startContainer;
-  const offset = range.startOffset;
-
-  if (node.nodeType === Node.TEXT_NODE) {
-    const text = node.textContent;
-    const beforeCursor = text.substring(0, offset);
-    const match = beforeCursor.match(/[\s\u00A0]{1,4}$/);
-    
-    if (match) {
-      node.textContent = text.substring(0, offset - match[0].length) + text.substring(offset);
-      range.setStart(node, offset - match[0].length);
-      range.collapse(true);
-      
-      const selection = window.getSelection();
-      selection.removeAllRanges();
-      selection.addRange(range);
-    }
-  } else if (range.startOffset > 0) {
-    const prevNode = node.childNodes[range.startOffset - 1];
-    if (prevNode?.className === 'tab-indent') {
-      prevNode.remove();
-    }
-  }
-}
-
-function attachFieldEvents() {
-  const fields = domElements.editor.querySelectorAll('.inserted-field');
-  fields.forEach(field => {
-    field.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      editField(field);
-    });
-  });
-}
-
-function stopFieldPlacement() {
-  appState.isInsertingField = false;
-  domElements.editor.style.cursor = 'text';
-  domElements.fieldPreview.style.display = 'none';
-
-  document.removeEventListener('mousemove', handleMouseMove);
-  domElements.editor.removeEventListener('click', handleFieldPlacement);
-  document.removeEventListener('keydown', handleEscapeKey);
-
-  hidePlacementHelp();
-  appState.pendingFieldData = null;
-  domElements.editor.focus();
-}
-
-function showPlacementHelp() {
-  const helpDiv = document.createElement('div');
-  helpDiv.id = 'placementHelp';
-  helpDiv.className = 'placement-help';
-  helpDiv.textContent = 'Cliquez à l\'endroit où vous souhaitez insérer le champ (Échap pour annuler)';
-  document.body.appendChild(helpDiv);
-}
-
-function hidePlacementHelp() {
-  const helpDiv = document.getElementById('placementHelp');
-  helpDiv?.remove();
-}
-
-function handleMouseMove(e) {
-  if (!appState.isInsertingField) return;
-  domElements.fieldPreview.style.left = `${e.pageX + 15}px`;
-  domElements.fieldPreview.style.top = `${e.pageY - 10}px`;
-}
-
-function handleEscapeKey(e) {
-  if (e.key !== 'Escape') return;
-  
-  if (appState.isInsertingField) {
-    stopFieldPlacement();
-  } else {
-    closeInsertFieldModal();
-    closeEditFieldModal();
-  }
-}
-
-function modalClickHandler(e) {
-  if (e.target === this) {
-    this.style.display = 'none';
-  }
-}
-
-function handleSelection(e) {
-  if (e.target.classList.contains('inserted-field')) {
-    e.preventDefault();
-  }
-}
-
-function resetModal(modalType) {
-  document.getElementById(`${modalType}FieldType`).value = 'Text';
-  document.getElementById(`${modalType}FieldLabel`).value = '';
-  document.getElementById(`${modalType}FieldRequired`).checked = false;
-  updateFieldLabel(modalType);
-}
-
-function focusModalField(modalType) {
-  const labelInput = document.getElementById(`${modalType}FieldLabel`);
-  labelInput.disabled ? 
-    document.getElementById(`${modalType}FieldRequired`).focus() : 
-    labelInput.focus();
-}
-
-function closeInsertFieldModal() {
-  domElements.insertFieldModal.style.display = 'none';
-}
-
-function closeEditFieldModal() {
-  domElements.editFieldModal.style.display = 'none';
-  appState.currentField = null;
-}
-
-// Initialisation
-document.addEventListener('DOMContentLoaded', init);
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', initEditor);
+    </script>
+</asp:Content>
