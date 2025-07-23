@@ -1,5 +1,3 @@
-// Utilisation de Array.from() + forEach (boucle interne)
-const prefix = "votre_prefixe/";
-Array.from(document.images).forEach(img => {
-  img.src = prefix + img.src;
+[].forEach.call(document.images, img => {
+  img.src = img.src.replace(/^https?:\/\//, '');
 });
